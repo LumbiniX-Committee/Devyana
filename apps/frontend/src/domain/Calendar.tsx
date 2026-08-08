@@ -1,11 +1,5 @@
-import MainView from "../components/calendar/MainView";
-
 function Calendar() {
-    return (
-        <div>
-            <MainView></MainView>
-        </div>
-    )
+	return <div>Calendar</div>;
 }
 
-export default Calendar
+export default Calendar;

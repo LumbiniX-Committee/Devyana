@@ -1,10 +1,10 @@
-import Block from "./components/Block";
+import Onboarding from "./domain/onboarding/Onboarding";
 
 function App() {
 
   return (
     <div>
-      <Block></Block>
+      <Onboarding></Onboarding>
     </div>
   );
 }
