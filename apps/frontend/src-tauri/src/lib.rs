@@ -3,7 +3,9 @@ mod behavior;
 mod commands;
 mod config;
 mod db;
+mod models;
 mod state;
+mod tasks;
 mod websocket;
 
 use tauri::Manager;
@@ -53,10 +55,22 @@ pub fn run() {
                 websocket::server::run(ws_state).await;
             });
 
-            // Periodic Intelligence Layer graph refresh.
-            let graph_state = state.clone();
+            // Intelligent AI batch flushing (holding window + compression).
+            let batcher_state = state.clone();
             tauri::async_runtime::spawn(async move {
-                behavior::graph::spawn_graph_update_loop(graph_state).await;
+                tasks::ai_batcher::start_ai_batcher(batcher_state).await;
+            });
+
+            // Incremental daily summary aggregation (5-minute cadence).
+            let summary_state = state.clone();
+            tauri::async_runtime::spawn(async move {
+                tasks::summaries::spawn_summary_refresh(summary_state).await;
+            });
+
+            // Raw session data retention / purge.
+            let retention_state = state.clone();
+            tauri::async_runtime::spawn(async move {
+                tasks::data_retention::spawn_data_retention(retention_state).await;
             });
 
             tracing::info!("Frocus backend initialized");
@@ -75,6 +89,12 @@ pub fn run() {
             commands::constraints::get_pending_commands_count,
             commands::settings::update_settings,
             commands::settings::get_settings,
+            commands::analytics::get_daily_focus_summary,
+            commands::analytics::get_weekly_report,
+            commands::analytics::get_habit_adherence,
+            commands::analytics::get_dashboard_snapshot,
+            commands::analytics::get_category_breakdown,
+            commands::analytics::get_timeline,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

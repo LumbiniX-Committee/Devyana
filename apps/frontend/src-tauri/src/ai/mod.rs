@@ -23,6 +23,9 @@ pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSes
                     return;
                 }
 
+                // Wake the AI batcher: a new classified session is queued.
+                let _ = state.ai_batch_notify.send(());
+
                 let updated = crate::db::models::NewSession { category, ..session };
                 if let Err(err) = crate::behavior::evaluator::evaluate_for_session(&state, &updated).await {
                     tracing::warn!(error = %err, "constraint evaluation after classification failed");

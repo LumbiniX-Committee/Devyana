@@ -103,44 +103,6 @@ pub async fn total_time_for_rule_since(
     Ok(row.try_get::<i64, _>("total").unwrap_or(0))
 }
 
-pub async fn sessions_for_graph_update(
-    pool: &SqlitePool,
-    since: &str,
-    limit: i64,
-) -> Result<Vec<Session>, String> {
-    sqlx::query_as::<_, Session>(
-        "SELECT * FROM sessions
-         WHERE ai_category IS NOT NULL AND processed_for_graph = 0 AND recorded_at > ?
-         ORDER BY recorded_at ASC LIMIT ?",
-    )
-    .bind(since)
-    .bind(limit)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| format!("load graph batch: {e}"))
-}
-
-pub async fn mark_sessions_processed(pool: &SqlitePool, ids: &[String]) -> Result<(), String> {
-    if ids.is_empty() {
-        return Ok(());
-    }
-    for chunk in ids.chunks(200) {
-        let mut sql = "UPDATE sessions SET processed_for_graph = 1 WHERE id IN (".to_string();
-        let placeholders: Vec<&str> = chunk.iter().map(|_| "?").collect();
-        sql.push_str(&placeholders.join(","));
-        sql.push(')');
-        let mut query = sqlx::query(&sql);
-        for id in chunk {
-            query = query.bind(id);
-        }
-        query
-            .execute(pool)
-            .await
-            .map_err(|e| format!("mark processed: {e}"))?;
-    }
-    Ok(())
-}
-
 /// Lightweight recent-session context for the AI classifier.
 pub async fn recent_session_context(
     pool: &SqlitePool,

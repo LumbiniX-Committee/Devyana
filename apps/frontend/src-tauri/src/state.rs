@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
+use tokio::sync::{mpsc, Mutex};
 
 use crate::ai::AiClient;
 use crate::config::AppSettings;
@@ -27,6 +28,10 @@ pub struct AppState {
     pub settings: Arc<RwLock<AppSettings>>,
     pub settings_path: PathBuf,
     pub page_meta_buffer: Arc<RwLock<HashMap<String, Vec<PageMetaEntry>>>>,
+    /// Signals the AI batcher that a new classified session is available.
+    pub ai_batch_notify: mpsc::UnboundedSender<()>,
+    /// Receiver half consumed by `tasks::ai_batcher::start_ai_batcher`.
+    pub ai_batch_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<()>>>>,
 }
 
 impl AppState {
@@ -44,6 +49,8 @@ impl AppState {
 
         let registry = Arc::new(crate::websocket::registry::WsRegistry::new());
 
+        let (ai_batch_notify, ai_batch_rx) = mpsc::unbounded_channel();
+
         let state = AppState {
             registry,
             db,
@@ -52,6 +59,8 @@ impl AppState {
             settings_path,
             app,
             page_meta_buffer: Arc::new(RwLock::new(HashMap::new())),
+            ai_batch_notify,
+            ai_batch_rx: Arc::new(Mutex::new(Some(ai_batch_rx))),
         };
 
         Ok(state)

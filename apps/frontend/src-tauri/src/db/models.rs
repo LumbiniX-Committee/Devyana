@@ -86,6 +86,19 @@ pub struct Notification {
     pub sent: i64,
 }
 
+/// Aggregated daily rollup row (`daily_summaries`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailySummaryMetrics {
+    pub date: String,
+    pub total_focus_ms: i64,
+    pub total_distraction_ms: i64,
+    pub distraction_count: i64,
+    pub session_count: i64,
+    pub top_distraction_site: Option<String>,
+    pub top_distraction_ms: i64,
+}
+
 /// Everything captured from a `session_end` event before it hits the DB.
 #[derive(Debug, Clone)]
 pub struct NewSession {

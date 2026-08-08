@@ -150,6 +150,21 @@ pub async fn update_behavior_graph(
     with_retry(|| post_json(client, &settings.ai_graph_url, &settings.ai_api_key, &body)).await
 }
 
+/// Typed variant used by the batcher: accepts `Vec<SessionForAI>` (already
+/// compressed/sanitized on the server side) and serializes on the way out.
+pub async fn update_behavior_graph_sessions(
+    client: &Client,
+    settings: &AppSettings,
+    user_id: &str,
+    sessions_batch: &[crate::models::analytics::SessionForAI],
+) -> Result<serde_json::Value, AiError> {
+    let payload: Vec<serde_json::Value> = sessions_batch
+        .iter()
+        .map(|s| serde_json::to_value(s).unwrap_or_else(|_| serde_json::json!({})))
+        .collect();
+    update_behavior_graph(client, settings, user_id, &payload).await
+}
+
 /// Initializes the behavior graph from an onboarding profile.
 pub async fn initialize_behavior_graph(
     client: &Client,

@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod constraints;
 pub mod notifications;
 pub mod profile;
