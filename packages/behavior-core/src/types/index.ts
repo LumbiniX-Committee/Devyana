@@ -1,10 +1,10 @@
 export type MetaField = string
 
-// export type ParsedUrl = {
-//     hostname: string;
-//     pathname: string;
-//     full: string;
-// }
+export type ParsedUrl = {
+    hostname: string;
+    pathname: string;
+    search: string;
+}
 
 export type UrlCondition = {
     hostname?: string;
@@ -29,6 +29,23 @@ export type MatchSpec = UrlCondition | RefCondition
 //     include?: Array<string>
 // }
 
+export type InterventionTrigger = "immediate" | "on_limit_exceeded"
+export type InterventionKind = "breathing"
+
+export type InterventionSpec = {
+    trigger: InterventionTrigger;
+    type: InterventionKind;
+    durationSec: number;
+    cooldownMs: number;
+    /**
+     * Optional usage budget for `on_limit_exceeded`, compared against the
+     * rule's accumulated session time. When absent the enforcement engine
+     * falls back to a sensible default (see `DEFAULT_USAGE_LIMIT_MS` in the
+     * extension).
+     */
+    limitMs?: number;
+}
+
 export type RuleBehavior = {
     emit?: "always" | "never" | "fallback";
     priority?: number;
@@ -37,6 +54,7 @@ export type RuleBehavior = {
     batchWith?: Array<string>;
     category?: string;
     trackHostnames?: boolean;
+    intervention?: InterventionSpec;
 }
 
 export type Rule = {
@@ -71,7 +89,9 @@ export type LiveRule = {
     metaFields: Array<MetaField>;
     include: Array<string>;
     needsMeta: boolean;
-    behavior: Required<RuleBehavior>;
+    behavior: Required<Omit<RuleBehavior, "intervention">> & {
+        intervention: InterventionSpec | null;
+    };
 }
 
 // export type PageMeta = {

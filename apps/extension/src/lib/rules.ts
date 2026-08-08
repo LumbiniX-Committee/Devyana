@@ -17,8 +17,15 @@ export const DEFAULT_RULES: Array<Rule> = [
             { ref: "youtube" },
             { ref: "instagram" }
         ],
-        behavior: { priority: 100 },
-        
+        behavior: {
+            priority: 100,
+            intervention: {
+                trigger: "immediate",
+                type: "breathing",
+                durationSec: 30,
+                cooldownMs: 5 * 60_000
+            }
+        }
     },
     {
         id: "youtube_shorts",

@@ -21,7 +21,20 @@ import {
 } from "~lib/store";
 import type { AggregatedSession, PersistedSession } from "~lib/store";
 import { FLUSH_ALARM, FLUSH_PERIOD_MIN, RULES_KEY, SWITCH_DEBOUNCE_MS } from "@vinaya/behavior-core";
-import type { LiveRule, PageMeta, RequestMetaMessage, Rule, Session, SessionEndEvent } from "@vinaya/behavior-core";
+import type {
+    InterventionActiveMessage,
+    InterventionCompletedMessage,
+    InterventionMessage,
+    LiveRule,
+    PageMeta,
+    RequestMetaMessage,
+    Rule,
+    Session,
+    SessionEndEvent,
+    SystemEvent,
+    Task
+} from "@vinaya/behavior-core";
+import { DESKTOP_DRIVEN_RULE_ID, enforcement } from "~background/enforcement";
 
 /**
  * How long we wait before committing a `focus_lost`, and how recently a real
@@ -93,6 +106,9 @@ class VinayaTracker {
         if (!stored) await saveRules(DEFAULT_RULES)
         this.rules = compileRules(stored ?? DEFAULT_RULES)
 
+        await enforcement.init()
+        enforcement.setRules(this.rules)
+
         const all = (await chrome.storage.local.get()) as Record<string, unknown>
         const namedRuleIds = new Set(
             (stored ?? DEFAULT_RULES)
@@ -120,6 +136,7 @@ class VinayaTracker {
         this.storage.watch({
             [RULES_KEY]: ({ newValue }) => {
                 this.rules = compileRules((newValue as Array<Rule>) ?? DEFAULT_RULES)
+                enforcement.setRules(this.rules)
             }
         })
 
@@ -163,6 +180,7 @@ class VinayaTracker {
         chrome.tabs.onRemoved.addListener((tabId) => {
             if (this.session?.tabId === tabId) this.endSession()
             this.metaCache.delete(tabId)
+            enforcement.onTabRemoved(tabId)
         })
 
         chrome.windows.onFocusChanged.addListener((windowId) =>
@@ -172,6 +190,53 @@ class VinayaTracker {
         chrome.alarms.onAlarm.addListener(({ name }) => {
             if (name === FLUSH_ALARM) this.flush()
         })
+
+        chrome.runtime.onMessage.addListener(this.handleExtensionMessage)
+    }
+
+    /**
+     * Bridges the intervention content script back into the enforcement engine.
+     * `intervention_active` confirms the overlay is live so a duplicate can never
+     * be injected; `intervention_completed` (task chosen / "choose later") feeds
+     * the cooldown bookkeeping and surfaces a `system_event` to the desktop.
+     */
+    private handleExtensionMessage = (
+        message: InterventionActiveMessage | InterventionCompletedMessage | unknown,
+        sender: chrome.runtime.MessageSender,
+        _sendResponse: (response?: unknown) => void
+    ): boolean => {
+        if (!message || typeof message !== "object" || !("type" in (message as object))) {
+            return false
+        }
+
+        const type = (message as { type?: string }).type
+
+        if (type === "intervention_active") {
+            const tabId = (message as InterventionActiveMessage).tabId ?? sender.tab?.id
+            if (tabId) enforcement.onInterventionActive(tabId)
+            return false
+        }
+
+        if (type === "intervention_completed") {
+            const payload = message as InterventionCompletedMessage
+            const tabId = payload.tabId ?? sender.tab?.id
+
+            if (tabId) {
+                const completed = payload.completed === true
+                enforcement.onInterventionCompleted(tabId, completed)
+
+                const systemEvent: SystemEvent = {
+                    event: "system_event",
+                    name: "intervention_completed",
+                    data: { tabId, completed }
+                }
+                void desktopBridge.send(systemEvent)
+            }
+
+            return false
+        }
+
+        return false
     }
 
     private async handleFocusChange(windowId: number): Promise<void> {
@@ -290,12 +355,12 @@ class VinayaTracker {
                 this.session?.pathname === url.pathname
 
             const allMatched = matchRules(url, this.rules)
-            const ruleMap = new Map(this.rules.map((rule) => [rule.id, rule]))
-            const matchedIds = resolveRules(allMatched, this.rules)
 
             if (isSameMatch) {
-                if (matchedIds.length && ruleMap.get(matchedIds[0])?.needsMeta) {
+                const ruleMap = new Map(this.rules.map((rule) => [rule.id, rule]))
+                const matchedIds = resolveRules(allMatched, this.rules)
 
+                if (matchedIds.length && ruleMap.get(matchedIds[0])?.needsMeta) {
                     this.resolveSessionMeta(tab.id, ruleMap.get(matchedIds[0])!)
                         .then((meta) => {
                             if (meta && this.session) this.session.meta = meta
@@ -304,6 +369,43 @@ class VinayaTracker {
                 }
                 return
             }
+
+            // Buddha's Palm: let the local enforcement engine decide before a
+            // session is started. Distracting navigation gets an un-skippable
+            // breathing intervention; sites in cooldown get a lighter block.
+            const decision = await enforcement.evaluateAccess(tabId, url, allMatched)
+
+            if (decision.action === "cooldown_block") {
+                this.endSession(switchAt)
+                void chrome.tabs
+                    .sendMessage(tabId, { command: "hard_block", tabId })
+                    .catch(() => { })
+                return
+            }
+
+            if (decision.action === "intervention") {
+                this.endSession(switchAt)
+
+                enforcement.beginIntervention(
+                    tabId,
+                    decision.ruleId,
+                    decision.hostname,
+                    decision.durationSec
+                )
+
+                const message: InterventionMessage = {
+                    type: "show_intervention",
+                    tabId,
+                    durationSec: decision.durationSec,
+                    tasks: decision.tasks
+                }
+
+                void chrome.tabs.sendMessage(tabId, message).catch(() => { })
+                return
+            }
+
+            const ruleMap = new Map(this.rules.map((rule) => [rule.id, rule]))
+            const matchedIds = resolveRules(allMatched, this.rules)
 
             if (!matchedIds.length) {
                 this.endSession(switchAt)
@@ -707,6 +809,44 @@ class VinayaTracker {
 
     updateRules(rules: Array<Rule>): void {
         saveRules(rules)
+        enforcement.setRules(compileRules(rules))
+    }
+
+    /**
+     * Desktop-driven intervention (e.g. AI noticed a drift). We record the
+     * active intervention so evaluateAccess never stacks a second overlay, then
+     * dispatch the overlay to the tab.
+     */
+    forceIntervention(
+        tabId: number,
+        durationSec: number,
+        tasks: Array<Task>
+    ): void {
+        if (!tabId) return
+
+        enforcement.beginIntervention(
+            tabId,
+            DESKTOP_DRIVEN_RULE_ID,
+            "",
+            durationSec
+        )
+
+        const message: InterventionMessage = {
+            type: "show_intervention",
+            tabId,
+            durationSec,
+            tasks
+        }
+
+        void chrome.tabs.sendMessage(tabId, message).catch(() => { })
+    }
+
+    setFocusMode(mode: { active: boolean; workRuleIds?: Array<string> }): void {
+        enforcement.setFocusMode(mode)
+    }
+
+    getFocusMode() {
+        return enforcement.getFocusMode()
     }
 }
 

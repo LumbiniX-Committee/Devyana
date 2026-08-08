@@ -5,6 +5,8 @@ import type {
     Rule,
     ServerMessage
 } from "@vinaya/behavior-core"
+import { DEFAULT_BREATHING_SEC } from "~background/enforcement"
+import { saveTasks } from "~lib/store"
 import iconUrl from "url:~assets/icon.development.png"
 
 const PORT_RANGE_START = 7423
@@ -371,6 +373,30 @@ class DesktopBridgeClient {
             case "update_rules":
                 import("~background/index")
                     .then(({ tracker }) => tracker.updateRules(command.rules))
+                    .catch(() => { })
+                break
+
+            case "update_tasks":
+                // Persist the task list; the enforcement engine reads it locally
+                // when constructing an intervention (no bridge needed).
+                saveTasks(command.tasks).catch(() => { })
+                break
+
+            case "show_intervention":
+                import("~background/index")
+                    .then(({ tracker }) => {
+                        tracker.forceIntervention(
+                            command.tabId,
+                            command.durationSec ?? DEFAULT_BREATHING_SEC,
+                            command.tasks ?? []
+                        )
+                    })
+                    .catch(() => { })
+                break
+
+            case "set_focus_mode":
+                import("~background/index")
+                    .then(({ tracker }) => tracker.setFocusMode(command))
                     .catch(() => { })
                 break
         }

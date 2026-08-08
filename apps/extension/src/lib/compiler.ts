@@ -1,8 +1,8 @@
-import type { FieldMatcher, LiveCondition, LiveRule, MatchSpec, Rule, UrlCondition } from "@vinaya/behavior-core";
+import type { FieldMatcher, LiveCondition, LiveRule, MatchSpec, ParsedUrl, Rule, UrlCondition } from "@vinaya/behavior-core";
 
 const normalizeHost = (hostname: string): string => hostname.replace(/^www\./i, "").toLowerCase()
 
-export function parseUrl(raw: string): { hostname: string; pathname: string; search: string } | null {
+export function parseUrl(raw: string): ParsedUrl | null {
     try {
         const url = new URL(raw)
         return { hostname: normalizeHost(url.hostname), pathname: url.pathname, search: url.search }
@@ -134,19 +134,16 @@ export function compileRules(rawRules: Array<Rule>): Array<LiveRule> {
                 exclusive: rule.behavior?.exclusive ?? false,
                 batchWith: rule.behavior?.batchWith ?? [],
                 category: rule.behavior?.category ?? "",
-                trackHostnames: rule.behavior?.trackHostnames ?? false
+                trackHostnames: rule.behavior?.trackHostnames ?? false,
+                intervention: rule.behavior?.intervention ?? null
             }
         }
     })
 }
 
 export function matchRules(
-    url: {
-        hostname: string;
-        pathname: string;
-        search: string;
-    },
-    rules: Array<LiveRule>
+    url: ParsedUrl,
+    rules: Array<LiveRule>,
 ): Array<string> {
     const matched: Array<string> = []
 

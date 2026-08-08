@@ -1,4 +1,4 @@
-import type { PageMeta, Rule } from "../types";
+import type { InterventionKind, PageMeta, Rule } from "../types";
 
 export type BrowserType =
     | "chrome"
@@ -88,7 +88,65 @@ export type DesktopCommand =
         message: string;
         gracePeriodMs: number;
     }
-    | { command: "update_rules"; rules: Array<Rule> };
+    | { command: "update_rules"; rules: Array<Rule> }
+    | { command: "update_tasks"; tasks: Array<Task> }
+    | {
+        command: "show_intervention";
+        tabId: number;
+        type: InterventionKind;
+        durationSec?: number;
+        tasks?: Array<Task>;
+    }
+    | {
+        command: "set_focus_mode";
+        active: boolean;
+        workRuleIds?: Array<string>;
+    };
 
 export type ServerAck = { type: "ack"; ids: Array<string> };
 export type ServerMessage = ServerAck | DesktopCommand;
+
+// ---------------------------------------------------------------------------
+// Intervention messaging
+// ---------------------------------------------------------------------------
+
+/**
+ * A single suggested task shown in the Phase 2 panel of the intervention
+ * overlay. Sourced from `chrome.storage.local["frocus_tasks"]` (sent by the
+ * desktop via the `update_tasks` command) or from a local default linking to
+ * the Frocus dashboard.
+ */
+export type Task = {
+    id: string;
+    title: string;
+    url?: string;
+};
+
+/** Sent by the background to a tab to mount the full-page intervention. */
+export type InterventionMessage = {
+    type: "show_intervention";
+    tabId?: number;
+    durationSec: number;
+    tasks: Array<Task>;
+};
+
+/**
+ * Sent by the intervention content script as soon as the overlay mounts so the
+ * enforcement engine knows never to inject a second overlay into the tab.
+ */
+export type InterventionActiveMessage = {
+    type: "intervention_active";
+    tabId?: number;
+};
+
+/**
+ * Sent by the content script when the overlay is dismissed. `completed: true`
+ * means the user acted on a suggested task (navigated to a task URL); false
+ * means they picked "I'll choose later". In both cases the evaluator arms the
+ * rule cooldown so the restricted site cannot be revisited immediately.
+ */
+export type InterventionCompletedMessage = {
+    type: "intervention_completed";
+    tabId?: number;
+    completed: boolean;
+};

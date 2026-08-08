@@ -1,4 +1,4 @@
-import { META_KEY, RULES_KEY, SESSION_KEY, TIME_KEY, type PageMeta, type Rule } from "@vinaya/behavior-core";
+import { META_KEY, RULES_KEY, SESSION_KEY, TIME_KEY, type PageMeta, type Rule, type Task } from "@vinaya/behavior-core";
 
 export async function loadRules(): Promise<Array<Rule> | null> {
     const data = await chrome.storage.local.get(RULES_KEY)
@@ -293,4 +293,75 @@ export async function getCurrentMergeTolerance(
 export async function forceMinMergeTolerance(minStep: number): Promise<void> {
     const storedStep = await loadMergeToleranceStep()
     if (storedStep < minStep) await saveMergeToleranceStep(minStep)
+}
+
+// ---------------------------------------------------------------------------
+// Intervention support storage
+//
+// Task list, focus-mode state and per-rule cooldown timestamps all live in
+// `chrome.storage.local` so the enforcement engine is fully deterministic and
+// survives background-service-worker restarts. None of this requires the
+// desktop bridge to be reachable.
+// ---------------------------------------------------------------------------
+
+export const TASKS_KEY = "frocus_tasks"
+export const FOCUS_MODE_KEY = "frocus_focus_mode"
+export const COOLDOWNS_KEY = "frocus_intervention_cooldowns"
+
+export async function loadTasks(): Promise<Array<Task>> {
+    const data = await chrome.storage.local.get(TASKS_KEY)
+
+    const tasks = data[TASKS_KEY] as Array<Task> | undefined
+
+    if (!Array.isArray(tasks)) return []
+    return tasks.filter(t => t && typeof t.id === "string" && typeof t.title === "string")
+}
+
+export async function saveTasks(tasks: Array<Task>): Promise<void> {
+    await chrome.storage.local.set({ [TASKS_KEY]: tasks })
+}
+
+export type FocusModeState = {
+    active: boolean;
+    workRuleIds?: Array<string>;
+}
+
+export async function loadFocusMode(): Promise<FocusModeState> {
+    const data = await chrome.storage.local.get(FOCUS_MODE_KEY)
+    const mode = data[FOCUS_MODE_KEY] as FocusModeState | undefined
+
+    if (typeof mode?.active !== "boolean") {
+        return { active: false, workRuleIds: [] }
+    }
+
+    return {
+        active: mode.active,
+        workRuleIds: Array.isArray(mode.workRuleIds) ? mode.workRuleIds : []
+    }
+}
+
+export async function saveFocusMode(mode: FocusModeState): Promise<void> {
+    await chrome.storage.local.set({
+        [FOCUS_MODE_KEY]: {
+            active: Boolean(mode.active),
+            workRuleIds: Array.isArray(mode.workRuleIds) ? mode.workRuleIds : []
+        }
+    })
+}
+
+export async function loadInterventionCooldowns(): Promise<Record<string, number>> {
+    const data = await chrome.storage.local.get(COOLDOWNS_KEY)
+    const cooldowns = data[COOLDOWNS_KEY] as Record<string, number> | undefined
+    const now = Date.now()
+
+    if (!cooldowns || typeof cooldowns !== "object") return {}
+    return Object.fromEntries(
+        Object.entries(cooldowns).filter(([, until]) => typeof until === "number" && until > now)
+    )
+}
+
+export async function saveInterventionCooldowns(
+    cooldowns: Record<string, number>
+): Promise<void> {
+    await chrome.storage.local.set({ [COOLDOWNS_KEY]: cooldowns })
 }
