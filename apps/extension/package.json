@@ -1,0 +1,48 @@
+{
+  "name": "@vinaya/extension",
+  "displayName": "Vinaya",
+  "version": "0.0.1",
+  "description": "Live a life you always wanted to",
+  "author": "flame",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "package": "plasmo package",
+    "format": "biome format",
+    "lint": "biome lint",
+    "check": "biome check"
+  },
+  "dependencies": {
+    "@vinaya/behavior-core": "0.0.1",
+    "@plasmohq/messaging": "^0.7.2",
+    "@plasmohq/storage": "^1.15.0",
+    "plasmo": "0.90.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.5",
+    "@ianvs/prettier-plugin-sort-imports": "4.1.1",
+    "@types/chrome": "^0.0.258",
+    "@types/node": "^20.11.5",
+    "@types/react": "18.2.48",
+    "@types/react-dom": "18.2.18",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.13",
+    "prettier": "3.2.4",
+    "tailwindcss": "^3.4.19",
+    "typescript": "5.3.3"
+  },
+  "manifest": {
+    "permissions": [
+      "alarms",
+      "storage",
+      "tabs",
+      "notifications",
+      "unlimitedStorage"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ]
+  }
+}

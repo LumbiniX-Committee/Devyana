@@ -1,0 +1,18 @@
+{
+  "name": "vinaya",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/website run dev",
+    "dev:frontend": "npm --workspace apps/frontend run dev",
+    "dev:extension": "npm --workspace apps/extension run dev",
+    "dev:backend": "npm --workspace apps/backend run dev",
+    "build:web": "npm --workspace apps/website run build",
+    "build:frontend": "npm --workspace apps/frontend run build",
+    "build:extension": "npm --workspace apps/extension run build",
+    "build:backend": "npm --workspace apps/backend run build"
+  }
+}

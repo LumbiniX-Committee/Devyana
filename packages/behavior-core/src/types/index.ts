@@ -1,0 +1,132 @@
+export type MetaField = string
+
+// export type ParsedUrl = {
+//     hostname: string;
+//     pathname: string;
+//     full: string;
+// }
+
+export type UrlCondition = {
+    hostname?: string;
+    pathname?: string;
+    search?: string;
+}
+
+export type RefCondition = {
+    ref: string
+}
+
+export type MatchSpec = UrlCondition | RefCondition
+
+// export type RuleType = "exact" | "path" | "regex" | "group"
+
+// export type Rule = {
+//     id: string;
+//     type: RuleType;
+//     match: string | Array<string>;
+//     trackTitle?: boolean;
+//     trackMeta?: boolean;
+//     include?: Array<string>
+// }
+
+export type RuleBehavior = {
+    emit?: "always" | "never" | "fallback";
+    priority?: number;
+    suppress?: Array<string>;
+    exclusive?: boolean;
+    batchWith?: Array<string>;
+    category?: string;
+    trackHostnames?: boolean;
+}
+
+export type Rule = {
+    id: string;
+    match: MatchSpec | Array<MatchSpec>;
+    meta?: Array<MetaField>;
+    include?: Array<string>;
+    behavior?: RuleBehavior;
+}
+
+
+export type FieldMatcher = (value: string) => boolean
+
+export type LiveCondition = {
+    hostname: FieldMatcher | null;
+    pathname: FieldMatcher | null;
+    search: FieldMatcher | null;
+}
+
+// export type LiveRule = {
+//     id: string;
+//     type: RuleType;
+//     match: string | Array<string>;
+//     regex?: RegExp;
+//     include: Array<string>;
+//     needsMeta: boolean;
+// }
+
+export type LiveRule = {
+    id: string;
+    conditions: Array<LiveCondition>;
+    metaFields: Array<MetaField>;
+    include: Array<string>;
+    needsMeta: boolean;
+    behavior: Required<RuleBehavior>;
+}
+
+// export type PageMeta = {
+//     title?: string;
+//     description?: string;
+//     keywords?: Array<string>;
+//     matchedTerms?: Array<string>;
+// }
+
+export type PageMeta = {
+    [field: string]: string | Array<string> | undefined;
+    matchedTerms?: Array<string>;
+}
+
+// export type Session = {
+//     ruleIds: Array<string>;
+//     primaryRule: string;
+//     tabId: number;
+//     startedAt: number;
+//     meta?: PageMeta;
+// }
+
+export type Session = {
+    ruleIds: Array<string>;
+    primaryRuleId: string;
+    tabId: number;
+    startedAt: number;
+    meta?: PageMeta;
+    hostname?: string;
+    pathname?: string;
+    url?: string;
+}
+
+
+export type PageMetaMessage = {
+    meta: PageMeta;
+    url: string;
+}
+
+export type RequestMetaMessage = {
+    type: "REQUEST_META";
+    metaFields: Array<MetaField>;
+    includeTerms: Array<string>;
+}
+
+
+export const RULES_KEY = "vinaya_rules"
+export const SESSION_KEY = "vinaya_session"
+export const TIME_KEY = (id: string) => `vinaya_time_${id}`
+export const META_KEY = (id: string) => `vinaya_meta_${id}`
+export const HOSTNAME_TIME_KEY = (ruleId: string, hostname: string) =>
+    `vinaya_htime_${ruleId}_${hostname}`
+
+export const FLUSH_ALARM = "vinaya_flush"
+export const FLUSH_PERIOD_MIN = 1 // Minimum is 1 minute as per docs
+
+export const SWITCH_DEBOUNCE_MS = 150
+export const SPA_NAV_DEBOUNCE_MS = 500

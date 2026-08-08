@@ -1,0 +1,28 @@
+{
+  "extends": ["plasmo/templates/tsconfig.base", "../../tsconfig.base.json"],
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    ".plasmo/index.d.ts",
+    "./**/*.ts",
+    "./**/*.tsx",
+    "src/background/index.ts",
+    "src/background/messages/page-meta.ts",
+    "src/contents/meta-collector.ts",
+    "src/lib/parser.ts",
+    "src/lib/rules.ts"
+  ],
+  "compilerOptions": {
+    "paths": {
+      "~*": [
+        "./src/*",
+      ]
+    },
+    "types": [
+      "chrome",
+      "node"
+    ],
+    "baseUrl": "."
+  }
+}
