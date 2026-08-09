@@ -61,6 +61,22 @@ impl WsRegistry {
             }
         }
     }
+
+    /// Delivers `msg` to every live client. Offline clients are silently
+    /// skipped — outbound broadcasts are best-effort by design.
+    pub async fn broadcast(&self, msg: Message) {
+        let senders: Vec<mpsc::Sender<Message>> = self
+            .clients
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .cloned()
+            .collect();
+
+        for sender in senders {
+            let _ = sender.send(msg.clone()).await;
+        }
+    }
 }
 
 pub type SharedRegistry = Arc<WsRegistry>;

@@ -97,6 +97,14 @@ pub fn run() {
             commands::analytics::get_dashboard_snapshot,
             commands::analytics::get_category_breakdown,
             commands::analytics::get_timeline,
+            commands::productivity::get_productivity_grid,
+            commands::tasks::add_task,
+            commands::tasks::update_task,
+            commands::tasks::delete_task,
+            commands::tasks::get_tasks,
+            commands::tasks::complete_task,
+            commands::tasks::reopen_task,
+            commands::tasks::suggest_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

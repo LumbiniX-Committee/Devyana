@@ -69,6 +69,10 @@ pub enum DesktopCommand {
     },
     #[serde(rename_all = "camelCase")]
     UpdateRules { rules: Vec<Rule> },
+    #[serde(rename_all = "camelCase")]
+    UpdateTasks {
+        tasks: Vec<crate::models::tasks::ExtensionTask>,
+    },
 }
 
 impl DesktopCommand {
@@ -81,6 +85,7 @@ impl DesktopCommand {
             DesktopCommand::ResumeMedia { .. } => "resume_media",
             DesktopCommand::ShowWarning { .. } => "show_warning",
             DesktopCommand::UpdateRules { .. } => "update_rules",
+            DesktopCommand::UpdateTasks { .. } => "update_tasks",
         }
     }
 
@@ -120,6 +125,23 @@ mod tests {
         assert_eq!(
             json,
             r#"{"command":"show_warning","tabId":12,"message":"slow down","gracePeriodMs":3000}"#
+        );
+    }
+
+    #[test]
+    fn serializes_update_tasks_command() {
+        use crate::models::tasks::ExtensionTask;
+        let cmd = DesktopCommand::UpdateTasks {
+            tasks: vec![ExtensionTask {
+                id: "t1".into(),
+                title: "Read".into(),
+                url: Some("https://example.com".into()),
+            }],
+        };
+        let json = serde_json::to_string(&cmd).expect("serializes");
+        assert_eq!(
+            json,
+            r#"{"command":"update_tasks","tasks":[{"id":"t1","title":"Read","url":"https://example.com"}]}"#
         );
     }
 }

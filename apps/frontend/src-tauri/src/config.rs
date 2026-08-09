@@ -60,6 +60,9 @@ pub struct AppSettings {
     pub ai_graph_url: String,
     #[serde(default)]
     pub ai_init_url: String,
+    /// Endpoint that turns the behavior graph + profile into task suggestions.
+    #[serde(default)]
+    pub ai_suggest_url: String,
     #[serde(default)]
     pub ai_api_key: String,
     /// Origins permitted to open the WebSocket. Prefix match ("" denies all,
@@ -105,6 +108,7 @@ impl Default for AppSettings {
             ai_classify_url: String::new(),
             ai_graph_url: String::new(),
             ai_init_url: String::new(),
+            ai_suggest_url: String::new(),
             ai_api_key: String::new(),
             allowed_origins: default_origins(),
             graph_batch_threshold: default_graph_batch_threshold(),

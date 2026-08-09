@@ -88,6 +88,17 @@ pub async fn handle_connection(state: AppState, stream: TcpStream, peer: SocketA
                         client_id = Some(h.client_id.clone());
                         state.registry.register(h.client_id.clone(), tx.clone());
                         let _ = state.app.emit("browser_connected", &h.client_id);
+                        // Fresh client: hand it the current task list so the
+                        // "What did you intend to do?" overlay is populated
+                        // even before the user touches the dashboard.
+                        let handshake_state = state.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Err(err) =
+                                crate::tasks::sync::broadcast_tasks(&handshake_state).await
+                            {
+                                tracing::warn!(error = %err, "task handshake sync failed");
+                            }
+                        });
                         if let Err(err) = flush_pending_for_client(&state, &tx, &h.client_id).await
                         {
                             tracing::warn!(error = %err, "failed to flush pending commands");
@@ -186,6 +197,21 @@ async fn process_event(state: &AppState, client_id: Option<&str>, env: &EventEnv
                     {
                         tracing::warn!(error = %err, "constraint evaluation failed");
                     }
+                    // Fire-and-forget auto-completion pass against the raw
+                    // session (rule/duration triggers). The categorized pass
+                    // runs again after AI classification in `ai::mod.rs`.
+                    let auto_state = state.clone();
+                    let auto_session = new_session.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(err) = crate::tasks::auto_complete::check_auto_complete(
+                            &auto_state,
+                            &auto_session,
+                        )
+                        .await
+                        {
+                            tracing::warn!(error = %err, "auto-completion check failed");
+                        }
+                    });
                     ai::spawn_classification(state, new_session);
                 }
                 Err(err) => {

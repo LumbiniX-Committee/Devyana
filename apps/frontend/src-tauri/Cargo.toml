@@ -34,5 +34,6 @@ tracing-appender = "0.2"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
+rrule = "0.14"
 http = "1"
 url = "2"

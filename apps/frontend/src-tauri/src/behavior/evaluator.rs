@@ -218,6 +218,7 @@ fn severity(command: &DesktopCommand) -> u8 {
         DesktopCommand::ResumeMedia { .. } => 1,
         DesktopCommand::Unblock { .. } => 1,
         DesktopCommand::UpdateRules { .. } => 0,
+        DesktopCommand::UpdateTasks { .. } => 0,
     }
 }
 

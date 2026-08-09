@@ -3,6 +3,8 @@ import { ArrowUp, RotateCcw, Sparkles, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import ProductivityGraph from "../../components/ProductivityGraph";
+import TaskPanel from "../../components/TaskPanel";
 import { AuroraBackground } from "./components/AuroraBackground";
 import { TopBar } from "./components/TopBar";
 import { toast } from "./components/ui/sonner";
@@ -132,6 +134,33 @@ export default function Dashboard() {
 							<RotateCcw className="h-3.5 w-3.5" strokeWidth={1.8} />
 							Replay onboarding
 						</button>
+					</motion.div>
+				</div>
+
+				<div className="relative z-20 mx-auto mb-16 grid w-full max-w-5xl gap-6 px-6 md:grid-cols-[1.15fr_minmax(280px,0.85fr)]">
+					<motion.section
+						initial={{ opacity: 0, y: 18 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.7, ease, delay: 0.15 }}
+						className="glass-card rounded-3xl p-5 sm:p-6"
+					>
+						<div className="mb-4 flex items-baseline justify-between">
+							<h2 className="text-base font-semibold text-foreground">
+								Productivity graph
+							</h2>
+							<span className="text-xs text-foreground/45">
+								Your focus, day by day
+							</span>
+						</div>
+						<ProductivityGraph />
+					</motion.section>
+
+					<motion.div
+						initial={{ opacity: 0, y: 18 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.7, ease, delay: 0.25 }}
+					>
+						<TaskPanel />
 					</motion.div>
 				</div>
 			</div>

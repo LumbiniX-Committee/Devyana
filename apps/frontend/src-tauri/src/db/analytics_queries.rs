@@ -5,6 +5,7 @@ use crate::db::models::Session;
 use crate::models::analytics::{
     CategoryBucket, FocusModeStatus, FocusSummary, HabitAdherence, SiteStat, Timeline, TimelineBlock,
 };
+use crate::models::tasks::DayProductivity;
 
 /// Categories treated as productive for analytics/insights.
 pub const PRODUCTIVE_CATEGORIES: &[&str] = &[
@@ -32,6 +33,16 @@ pub const DISTRACTING_CATEGORIES: &[&str] = &[
 
 /// A productive session at least this long counts as a "focus block".
 pub const FOCUS_BLOCK_MIN_MS: i64 = 20 * 60 * 1000;
+
+/// Theoretical ceiling (in hours) used to normalise a day's focus time.
+pub const PRODUCTIVE_DAY_TARGET_HOURS: f64 = 8.0;
+
+/// Tasks completed in a single day that fully saturate the score's task bonus.
+const TASKS_BONUS_TARGET: f64 = 10.0;
+
+/// Theoretical Pomodoro ceiling for the score term (not tracked yet, so it
+/// contributes zero until a Pomodoro source exists).
+const POMODORO_DAY_TARGET: f64 = 8.0;
 
 /// Builds a SQL `(?, ?, ...)` placeholder list of `n` binds.
 fn in_list(n: usize) -> String {
@@ -254,6 +265,53 @@ pub async fn day_session_count(pool: &SqlitePool, date: &str) -> Result<i64, Str
     .await
     .map_err(|e| format!("day session count: {e}"))?;
     Ok(row.try_get::<i64, _>("c").unwrap_or(0))
+}
+
+// ---------------------------------------------------------------------------
+// Productivity grid
+// ---------------------------------------------------------------------------
+
+/// One entry per day for `[start_date, end_date]` (inclusive), even for days
+/// without any tracked activity. Backed by `daily_summaries` (lazily backfilled)
+/// and the tasks table when available.
+pub async fn productivity_grid(
+    pool: &SqlitePool,
+    start_date: &str,
+    end_date: &str,
+) -> Result<Vec<DayProductivity>, String> {
+    let summaries = crate::db::summaries::summaries_in_range(pool, start_date, end_date).await?;
+    let completed = crate::db::tasks_queries::completed_per_day(pool, start_date, end_date).await?;
+    let completed: std::collections::HashMap<String, i64> = completed.into_iter().collect();
+
+    Ok(summaries
+        .into_iter()
+        .map(|s| {
+            let focus_hours = s.total_focus_ms as f64 / 3_600_000.0;
+            let distraction_hours = s.total_distraction_ms as f64 / 3_600_000.0;
+            let tasks_completed = completed.get(&s.date).copied().unwrap_or(0);
+            // Pomodoros are not persisted yet; keep the field for future use.
+            let pomodoro_sessions = 0i32;
+
+            let focus_ratio =
+                (focus_hours / PRODUCTIVE_DAY_TARGET_HOURS).clamp(0.0, 1.0);
+            let task_ratio = (tasks_completed as f64 / TASKS_BONUS_TARGET).clamp(0.0, 1.0);
+            let pomodoro_ratio = (pomodoro_sessions as f64 / POMODORO_DAY_TARGET).clamp(0.0, 1.0);
+
+            // Deterministic local normalisation: focus is the core signal, with
+            // smaller bonuses for completed tasks and (when tracked) Pomodoros.
+            let score =
+                (0.6 * focus_ratio + 0.3 * task_ratio + 0.1 * pomodoro_ratio).clamp(0.0, 1.0);
+
+            DayProductivity {
+                date: s.date,
+                score,
+                focus_hours: (focus_hours * 100.0).round() / 100.0,
+                distraction_hours: (distraction_hours * 100.0).round() / 100.0,
+                tasks_completed: tasks_completed as i32,
+                pomodoro_sessions,
+            }
+        })
+        .collect())
 }
 
 // ---------------------------------------------------------------------------

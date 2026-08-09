@@ -30,6 +30,18 @@ pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSes
                 if let Err(err) = crate::behavior::evaluator::evaluate_for_session(&state, &updated).await {
                     tracing::warn!(error = %err, "constraint evaluation after classification failed");
                 }
+
+                // Second auto-completion pass with the classified category, so
+                // `ai_category`-based completion triggers can now match.
+                let auto_state = state.clone();
+                let auto_session = updated.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(err) =
+                        crate::tasks::auto_complete::check_auto_complete(&auto_state, &auto_session).await
+                    {
+                        tracing::warn!(error = %err, "auto-completion after classification failed");
+                    }
+                });
             }
             Err(err) => {
                 tracing::warn!(session_id = %session.id, error = %err, "classification failed");

@@ -109,6 +109,38 @@ pub struct DailySummaryMetrics {
     pub top_distraction_ms: i64,
 }
 
+/// Full task row. `completion_trigger` and the derived fields are stored as
+/// JSON/text in the DB and surfaced as-is (the frontend parses the trigger).
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Task {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub due_date: Option<String>,
+    pub recurrence_rule: Option<String>,
+    pub parent_task_id: Option<String>,
+    pub energy_level: Option<String>,
+    pub completion_trigger: Option<String>,
+    pub completed_at: Option<String>,
+    pub user_id: Option<String>,
+}
+
+/// Input payload for creating a task (id/status/timestamps are generated).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewTask {
+    pub title: String,
+    pub description: Option<String>,
+    pub due_date: Option<String>,
+    pub recurrence_rule: Option<String>,
+    pub energy_level: Option<String>,
+    pub completion_trigger: Option<serde_json::Value>,
+    pub user_id: Option<String>,
+}
+
 /// Everything captured from a `session_end` event before it hits the DB.
 #[derive(Debug, Clone)]
 pub struct NewSession {

@@ -3,3 +3,4 @@ pub mod models;
 pub mod pool;
 pub mod queries;
 pub mod summaries;
+pub mod tasks_queries;

@@ -207,3 +207,35 @@ pub async fn classify_session(
     )
     .await
 }
+
+/// Asks the Intelligence Layer for personalised task suggestions given the
+/// profile, the current behavior graph and the 10 most recent uncompleted
+/// tasks. The response must be a JSON object whose `suggestions` field (or
+/// root value) is an array of `{ title, description, reason }` items — the
+/// caller is responsible for parsing and falling back gracefully.
+pub async fn suggest_tasks(
+    client: &Client,
+    settings: &AppSettings,
+    profile: &UserProfile,
+    behavior_graph: Option<&serde_json::Value>,
+    existing_tasks: &[serde_json::Value],
+) -> Result<serde_json::Value, AiError> {
+    ensure_configured(settings, &settings.ai_suggest_url)?;
+
+    let goals = serde_json::from_str::<serde_json::Value>(&profile.goals)
+        .unwrap_or_else(|_| serde_json::json!([]));
+
+    let body = serde_json::json!({
+        "profile": {
+            "userId": profile.id,
+            "gender": profile.gender,
+            "age": profile.age,
+            "profession": profile.profession,
+            "goals": goals,
+        },
+        "behaviorGraph": behavior_graph.unwrap_or(&serde_json::json!(null)),
+        "context": existing_tasks,
+    });
+
+    with_retry(|| post_json(client, &settings.ai_suggest_url, &settings.ai_api_key, &body)).await
+}
