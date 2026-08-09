@@ -17,6 +17,12 @@
     "paths": {
       "~*": [
         "./src/*",
+      ],
+      "@vinaya/behavior-core": [
+        "../../packages/behavior-core/src"
+      ],
+      "@vinaya/behavior-core/*": [
+        "../../packages/behavior-core/src/*"
       ]
     },
     "types": [

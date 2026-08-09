@@ -267,10 +267,16 @@ class DesktopBridgeClient {
     private async onOpen(): Promise<void> {
         this.connected = true
         this.reconnectAttempts = 0
+        console.log("WebSocket connected:", this.socket?.url)
 
         // send a handshake
         this.rawSend({
             type: "handshake",
+            clientId: this.clientId,
+            browserType: this.browserType,
+            extensionVersion: chrome.runtime.getManifest().version
+        })
+        console.log("Handshake sent", {
             clientId: this.clientId,
             browserType: this.browserType,
             extensionVersion: chrome.runtime.getManifest().version
@@ -342,6 +348,7 @@ class DesktopBridgeClient {
     }
 
     private onMessage(raw: string) {
+        console.log("WebSocket message:", raw.slice(0, 500))
         let message: ServerMessage
 
         try {
