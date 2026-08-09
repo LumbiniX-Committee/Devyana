@@ -160,22 +160,25 @@ export default function ProductivityGraph({
 						</span>
 					))}
 				</div>
-				<div className="flex gap-[3px]">
+				<div className="flex h-[102px] flex-1 gap-[3px]">
 					{columns.map((week) => {
 						const weekKey = week[0]?.day.format("YYYY-MM-DD");
 						return (
-							<div key={weekKey} className="flex flex-col gap-[3px]">
+							<div
+								key={weekKey}
+								className="flex h-full flex-1 flex-col gap-[3px]"
+							>
 								{week.map((cell) => {
 									const entry = cell.entry;
 									const level = levelFor(entry?.score ?? 0);
 									return (
 										<div
 											key={cell.day.format("YYYY-MM-DD")}
-											className="group/grid relative"
+											className="group/grid relative flex-1"
 										>
 											<div
 												className={cn(
-													"h-3 w-3 rounded-[3px] transition-transform group-hover/grid:scale-125",
+													"h-full w-full rounded-[3px] transition-transform group-hover/grid:scale-125",
 													loading && !entry && "animate-pulse",
 												)}
 												style={{ backgroundColor: CELL_COLORS[level] }}

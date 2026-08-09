@@ -14,6 +14,10 @@ export interface DailyBehavior {
 
 const FONT = '"Georgia", "Times New Roman", serif';
 
+function minutesOrZero(value: number): number {
+	return Number.isFinite(value) ? value : 0;
+}
+
 const COLORS = {
 	ink: "#5C4B3A",
 	mutedInk: "#85705B",
@@ -38,6 +42,8 @@ export default function BehaviorTrendChart({
 	days = 30,
 	className,
 }: BehaviorTrendChartProps) {
+	const effectiveDays = Math.min(days, 7);
+
 	const [data, setData] = useState<DailyBehavior[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -45,7 +51,9 @@ export default function BehaviorTrendChart({
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);
-		invoke<DailyBehavior[]>("get_user_behavior_trend", { days })
+		invoke<DailyBehavior[]>("get_user_behavior_trend", {
+			days: effectiveDays,
+		})
 			.then((rows) => {
 				if (cancelled) return;
 				setData(rows ?? []);
@@ -62,17 +70,17 @@ export default function BehaviorTrendChart({
 		return () => {
 			cancelled = true;
 		};
-	}, [days]);
+	}, [effectiveDays]);
 
 	const series = useMemo(
 		() => [
 			{
 				name: "Productive",
-				data: data.map((d) => d.productiveMinutes),
+				data: data.map((d) => minutesOrZero(d.productiveMinutes)),
 			},
 			{
 				name: "Distracting",
-				data: data.map((d) => d.distractingMinutes),
+				data: data.map((d) => minutesOrZero(d.distractingMinutes)),
 			},
 		],
 		[data],
@@ -123,7 +131,7 @@ export default function BehaviorTrendChart({
 			xaxis: {
 				type: "category",
 				categories,
-				tickAmount: days > 30 ? "dataPoints" : undefined,
+				tickAmount: effectiveDays > 30 ? "dataPoints" : undefined,
 				labels: {
 					rotate: -45,
 					hideOverlappingLabels: true,
@@ -161,7 +169,8 @@ export default function BehaviorTrendChart({
 					},
 				},
 				y: {
-					formatter: (value: number) => `${value.toFixed(1)} min`,
+					formatter: (value: number) =>
+						`${minutesOrZero(value).toFixed(1)} min`,
 				},
 			},
 			legend: {
@@ -176,7 +185,7 @@ export default function BehaviorTrendChart({
 				style: { colors: [COLORS.mutedInk], fontFamily: FONT },
 			},
 		}),
-		[categories, data, days],
+		[categories, data, effectiveDays],
 	);
 
 	return (
@@ -200,7 +209,7 @@ export default function BehaviorTrendChart({
 						className="mt-1 text-xs"
 						style={{ color: COLORS.mutedInk, fontFamily: FONT }}
 					>
-						The balance of the past {days} days, minute by minute
+						The balance of the past {effectiveDays} days, minute by minute
 					</p>
 				</div>
 			</div>

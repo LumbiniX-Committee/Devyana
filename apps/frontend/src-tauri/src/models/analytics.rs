@@ -171,6 +171,22 @@ pub struct HourlyActivity {
     pub distracting_minutes: f64,
 }
 
+/// Minutes of tracked activity per hour, split by the site (hostname) that
+/// produced it for a single calendar day. Each entry is one tracked website
+/// with its own hourly buckets — the dashboard renders these as separate,
+/// AI-coloured graph boxes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HourlySite {
+    /// Site hostname (e.g. "youtube.com").
+    pub hostname: String,
+    /// Dominant Intelligence Layer category for the day (e.g. "learning",
+    /// "social_media"). `None` when no session was classified.
+    pub ai_category: Option<String>,
+    /// Per-hour minute buckets (`start_hour`..`end_hour`, zero-filled).
+    pub hours: Vec<HourlyActivity>,
+}
+
 /// One block of a day's timeline.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

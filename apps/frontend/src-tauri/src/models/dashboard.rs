@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// One day of the User Behavior Graph: productive vs. distracting minutes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DailyBehavior {
     /// Local calendar day, `YYYY-MM-DD`.
     pub date: String,
@@ -13,6 +14,7 @@ pub struct DailyBehavior {
 
 /// A single unwholesome activity bucket surfaced on the dashboard.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NegativeWorkItem {
     /// Canonical `ai_category` id (e.g. `dopamine_shorts`).
     pub category: String,

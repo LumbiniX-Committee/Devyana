@@ -116,6 +116,7 @@ pub fn run() {
             commands::analytics::get_category_breakdown,
             commands::analytics::get_timeline,
             commands::analytics::get_hourly_activity,
+            commands::analytics::get_hourly_activity_by_site,
             commands::productivity::get_productivity_grid,
             commands::dashboard::get_user_behavior_trend,
             commands::dashboard::get_negative_works,

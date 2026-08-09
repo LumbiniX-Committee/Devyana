@@ -8,7 +8,7 @@ use crate::db::models::DailySummaryMetrics;
 use crate::db::{queries, summaries};
 use crate::models::analytics::{
     ActiveConstraint, CategoryBucket, DailyReport, DashboardSnapshot, FocusSummary, FocusTrend,
-    HabitAdherence, HourlyActivity, RuleUsage, Timeline, WeeklyReport,
+    HabitAdherence, HourlyActivity, HourlySite, RuleUsage, Timeline, WeeklyReport,
 };
 use crate::state::AppState;
 
@@ -149,6 +149,26 @@ pub async fn get_hourly_activity(
     end_hour: Option<i32>,
 ) -> Result<Vec<HourlyActivity>, String> {
     aq::hourly_activity(
+        &state.db,
+        &date,
+        start_hour.unwrap_or(6),
+        end_hour.unwrap_or(18),
+    )
+    .await
+}
+
+/// Per-site (hostname) hourly minutes for one day — one entry per tracked
+/// website so the dashboard can render each as a separate AI-coloured box.
+/// `start_hour`/`end_hour` default to 6..18 (06:00–18:00); the frontend caps
+/// the X-axis to a 12-hour window.
+#[tauri::command]
+pub async fn get_hourly_activity_by_site(
+    state: State<'_, AppState>,
+    date: String,
+    start_hour: Option<i32>,
+    end_hour: Option<i32>,
+) -> Result<Vec<HourlySite>, String> {
+    aq::hourly_activity_by_site(
         &state.db,
         &date,
         start_hour.unwrap_or(6),

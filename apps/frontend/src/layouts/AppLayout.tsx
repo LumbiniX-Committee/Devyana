@@ -1,24 +1,38 @@
-import { Outlet, useLocation } from "react-router-dom";
-import { Home, AlertCircle, BookOpen, Settings } from "lucide-react";
+import {
+	GraduationCap,
+	Home,
+	type LucideIcon,
+	Settings2,
+	ShieldAlert,
+} from "lucide-react";
 import { useMemo } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 
 const FONT = '"Georgia", "Times New Roman", serif';
 
 interface NavItem {
 	path: string;
 	label: string;
-	icon: typeof Home;
+	icon: LucideIcon;
 	lotus?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
 	{ path: "/app", label: "Home", icon: Home, lotus: true },
-	{ path: "/app/negative", label: "Negative", icon: AlertCircle },
-	{ path: "/app/learn", label: "Learn", icon: BookOpen },
-	{ path: "/app/settings", label: "Settings", icon: Settings },
+	{ path: "/app/negative", label: "Negative", icon: ShieldAlert },
+	{ path: "/app/learn", label: "Learn", icon: GraduationCap },
+	{ path: "/app/settings", label: "Settings", icon: Settings2 },
 ];
 
-function LotusIcon({ size = 22, strokeWidth = 2, color }: { size?: number; strokeWidth?: number; color: string }) {
+function LotusIcon({
+	size = 22,
+	strokeWidth = 2,
+	color,
+}: {
+	size?: number;
+	strokeWidth?: number;
+	color: string;
+}) {
 	return (
 		<svg
 			width={size}
@@ -51,7 +65,10 @@ export default function AppLayout() {
 	const currentPath = useMemo(() => location.pathname, [location.pathname]);
 
 	return (
-		<div className="relative min-h-screen w-full" style={{ backgroundColor: "#FBF7F0" }}>
+		<div
+			className="relative min-h-screen w-full"
+			style={{ backgroundColor: "#FBF7F0" }}
+		>
 			<div
 				style={{
 					backgroundImage: `url("data:image/svg+xml;base64,${btoa(`
@@ -72,15 +89,15 @@ export default function AppLayout() {
 				}}
 			>
 				<main
-					className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 pb-24 sm:px-6"
-					style={{ paddingBottom: "88px" }}
+					className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 pb-28 sm:px-6"
+					style={{ paddingBottom: "112px" }}
 				>
 					<Outlet />
 				</main>
 			</div>
 
 			<nav
-				className="fixed bottom-0 left-1/2 z-50 -translate-x-1/2 w-full max-w-5xl"
+				className="fixed bottom-0 left-1/2 z-50 -translate-x-1/2 w-full max-w-5xl mb-4"
 				style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
 				aria-label="Main navigation"
 			>
@@ -95,18 +112,24 @@ export default function AppLayout() {
 					}}
 				>
 					{NAV_ITEMS.map((item) => {
-						const isActive = currentPath === item.path || (item.path === "/app" && currentPath === "/app");
+						const isActive =
+							item.path === "/app"
+								? currentPath === "/app"
+								: currentPath === item.path ||
+									currentPath.startsWith(`${item.path}/`);
 						const iconColor = isActive ? "#8B9A6E" : "#B0A090";
 
 						return (
 							<button
 								key={item.path}
 								type="button"
-								onClick={() => window.location.href = item.path}
+								onClick={() => (window.location.href = item.path)}
 								className="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors"
 								style={{
 									color: iconColor,
-									backgroundColor: isActive ? "rgba(139, 154, 110, 0.1)" : "transparent",
+									backgroundColor: isActive
+										? "rgba(139, 154, 110, 0.1)"
+										: "transparent",
 								}}
 								aria-current={isActive ? "page" : undefined}
 								aria-label={item.label}
@@ -115,12 +138,20 @@ export default function AppLayout() {
 									{item.lotus ? (
 										<LotusIcon size={22} strokeWidth={2.2} color={iconColor} />
 									) : (
-										<item.icon size={22} strokeWidth={2.2} color={iconColor} aria-hidden="true" />
+										<item.icon
+											size={22}
+											strokeWidth={2.2}
+											color={iconColor}
+											aria-hidden="true"
+										/>
 									)}
 									{isActive && (
 										<span
 											className="absolute -top-1 left-1/2 -translate-x-1/2 h-1.5 w-1.5 rounded-full"
-											style={{ backgroundColor: "#8B9A6E", boxShadow: "0 0 6px #8B9A6E, 0 0 12px #8B9A6E" }}
+											style={{
+												backgroundColor: "#8B9A6E",
+												boxShadow: "0 0 6px #8B9A6E, 0 0 12px #8B9A6E",
+											}}
 											aria-hidden="true"
 										/>
 									)}

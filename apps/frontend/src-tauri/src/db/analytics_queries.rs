@@ -5,8 +5,8 @@ use sqlx::{Row, SqlitePool};
 
 use crate::db::models::Session;
 use crate::models::analytics::{
-    CategoryBucket, FocusModeStatus, FocusSummary, HabitAdherence, HourlyActivity, SiteStat,
-    Timeline, TimelineBlock,
+    CategoryBucket, FocusModeStatus, FocusSummary, HabitAdherence, HourlyActivity, HourlySite,
+    SiteStat, Timeline, TimelineBlock,
 };
 use crate::models::dashboard::{negative_work_description, DailyBehavior, NegativeWorkItem};
 use crate::models::tasks::DayProductivity;
@@ -365,6 +365,138 @@ pub async fn hourly_activity(
                 total_minutes: total,
                 productive_minutes: productive,
                 distracting_minutes: snap((total - productive).max(0.0)),
+            }
+        })
+        .collect())
+}
+
+/// Aggregated per-minute activity *bucket* — total minutes for one site within
+/// one hour bucket.
+struct SiteHourBucket {
+    hostname: String,
+    total_minutes: f64,
+    productive_minutes: f64,
+}
+
+/// Per-site (hostname) hourly minutes for one day, bucketed by each session's
+/// *local* start hour (DST‑aware). Hours without activity are zero-filled so
+/// each site's chart renders a contiguous day. Every site surveyed gets its
+/// own row in the result, ordered by total tracked minutes descending and the
+/// dominant AI category attached for colouring.
+pub async fn hourly_activity_by_site(
+    pool: &SqlitePool,
+    date: &str,
+    start_hour: i32,
+    end_hour: i32,
+) -> Result<Vec<HourlySite>, String> {
+    if !(0..=24).contains(&start_hour) || !(0..=24).contains(&end_hour) {
+        return Err(format!(
+            "hours must be in 0..=24, got {start_hour}..{end_hour}"
+        ));
+    }
+    if end_hour <= start_hour {
+        return Err(format!(
+            "end_hour {end_hour} must follow start_hour {start_hour}"
+        ));
+    }
+
+    let (start, end) = day_bounds_ms(date)?;
+    let rows = sqlx::query(
+        "SELECT hostname, started_at, duration_ms, ai_category FROM sessions
+         WHERE started_at >= ? AND started_at < ?",
+    )
+    .bind(start)
+    .bind(end)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("hourly activity by site: {e}"))?;
+
+    let mut buckets: HashMap<(String, i32), SiteHourBucket> = HashMap::new();
+    let mut category_ms: HashMap<(String, String), f64> = HashMap::new();
+    for row in rows {
+        let hostname: String = row.try_get("hostname").unwrap_or_default();
+        let started_at: i64 = row.try_get("started_at").unwrap_or(0);
+        let duration_ms: i64 = row.try_get("duration_ms").unwrap_or(0);
+        let category: Option<String> = row
+            .try_get::<Option<String>, _>("ai_category")
+            .ok()
+            .flatten();
+
+        let hour = Local
+            .timestamp_millis_opt(started_at)
+            .single()
+            .map(|dt| dt.hour() as i32)
+            .unwrap_or(-1);
+        if hour < start_hour || hour >= end_hour {
+            continue;
+        }
+
+        let minutes = duration_ms as f64 / 60_000.0;
+        let productive = category
+            .as_deref()
+            .map(|c| PRODUCTIVE_CATEGORIES.contains(&c))
+            .unwrap_or(false);
+
+        let key = (hostname.clone(), hour);
+        let slot = buckets.entry(key).or_insert(SiteHourBucket {
+            hostname: hostname.clone(),
+            total_minutes: 0.0,
+            productive_minutes: 0.0,
+        });
+        slot.total_minutes += minutes;
+        if productive {
+            slot.productive_minutes += minutes;
+        }
+        // Track raw category minutes so we can later pick the dominant one.
+        if let Some(cat) = &category {
+            *category_ms
+                .entry((hostname.clone(), cat.clone()))
+                .or_insert(0.0) += minutes;
+        }
+    }
+
+    // Order sites by total minutes, then attach each site's dominant category.
+    let mut totals: HashMap<String, f64> = HashMap::new();
+    for slot in buckets.values() {
+        *totals.entry(slot.hostname.clone()).or_insert(0.0) += slot.total_minutes;
+    }
+    let mut hostnames: Vec<String> = totals.keys().cloned().collect();
+    hostnames.sort_by(|a, b| {
+        totals[b]
+            .partial_cmp(&totals[a])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let snap = |x: f64| (x * 100.0).round() / 100.0;
+    Ok(hostnames
+        .into_iter()
+        .map(|host| {
+            let dominant = category_ms
+                .iter()
+                .filter(|((h, _), _)| h == &host)
+                .max_by(|a, b| {
+                    a.1.partial_cmp(b.1)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .map(|((_, cat), _)| cat.clone());
+            let hours = (start_hour..end_hour)
+                .map(|hour| {
+                    let slot = buckets.get(&(host.clone(), hour));
+                    let (total, productive) = slot
+                        .map(|s| (s.total_minutes, s.productive_minutes))
+                        .unwrap_or((0.0, 0.0));
+                    HourlyActivity {
+                        hour,
+                        total_minutes: snap(total),
+                        productive_minutes: snap(productive),
+                        distracting_minutes: snap((total - productive).max(0.0)),
+                    }
+                })
+                .collect();
+            HourlySite {
+                hostname: host,
+                ai_category: dominant,
+                hours,
             }
         })
         .collect())
@@ -1105,6 +1237,70 @@ mod tests {
             hourly_activity(&pool, &today, -1, 18).await.is_err(),
             "out of range rejected"
         );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn hourly_activity_by_site_splits_rows_per_hostname() {
+        let dir = std::env::temp_dir().join(format!("viyana-hoursite-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let pool = crate::db::pool::create_pool(&dir.join("test.db"))
+            .await
+            .expect("pool");
+
+        let today = crate::db::summaries::today_key();
+        let (day_start, _end) = day_bounds_ms(&today).expect("bounds today");
+        let local_day = Local
+            .timestamp_millis_opt(day_start)
+            .single()
+            .unwrap()
+            .date_naive();
+
+        let nine = Local
+            .from_local_datetime(&local_day.and_hms_opt(9, 0, 0).unwrap())
+            .single()
+            .unwrap()
+            .timestamp_millis();
+        let ten = Local
+            .from_local_datetime(&local_day.and_hms_opt(10, 0, 0).unwrap())
+            .single()
+            .unwrap()
+            .timestamp_millis();
+
+        let github = make_session("g1", "github.com", "/", nine, nine + 1_200_000);
+        let tiktok = make_session("t1", "tiktok.com", "/", ten, ten + 900_000);
+        for s in [&github, &tiktok] {
+            crate::db::queries::insert_session(&pool, s).await.expect("insert");
+        }
+        crate::db::queries::update_session_ai_category(&pool, &github.id, "coding")
+            .await
+            .expect("cat1");
+        crate::db::queries::update_session_ai_category(&pool, &tiktok.id, "social_media")
+            .await
+            .expect("cat2");
+
+        let sites = hourly_activity_by_site(&pool, &today, 6, 18)
+            .await
+            .expect("sites");
+        assert_eq!(sites.len(), 2, "one row per hostname");
+        assert_eq!(sites[0].hostname, "github.com", "sorted by total minutes desc");
+        assert_eq!(sites[0].ai_category.as_deref(), Some("coding"));
+        let gh_hour = sites[0]
+            .hours
+            .iter()
+            .find(|h| h.hour == 9)
+            .expect("09h bucket");
+        assert!((gh_hour.total_minutes - 20.0).abs() < 1e-6);
+        assert!((gh_hour.productive_minutes - 20.0).abs() < 1e-6);
+        assert_eq!(sites[0].hours.len(), 12, "06:00..18:00 = twelve buckets");
+
+        let tk = sites.iter().find(|s| s.hostname == "tiktok.com").expect("tiktok");
+        assert_eq!(tk.ai_category.as_deref(), Some("social_media"));
+        let tk_hour = tk.hours.iter().find(|h| h.hour == 10).expect("10h bucket");
+        assert!((tk_hour.total_minutes - 15.0).abs() < 1e-6);
+        assert!((tk_hour.productive_minutes - 0.0).abs() < 1e-6);
+        assert!((tk_hour.distracting_minutes - 15.0).abs() < 1e-6);
 
         std::fs::remove_dir_all(&dir).ok();
     }

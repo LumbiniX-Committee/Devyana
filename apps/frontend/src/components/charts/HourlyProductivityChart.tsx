@@ -1,73 +1,148 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ApexOptions } from "apexcharts";
 import dayjs from "dayjs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import ApexChart from "react-apexcharts";
 
 import { cn } from "../../lib/utils";
 
-export interface HourlyActivity {
-	hour: number;
-	totalMinutes: number;
-	productiveMinutes: number;
-	distractingMinutes: number;
+/** One `session_end` block, straight from the `get_timeline` command. */
+export interface DayTimelineBlock {
+	id: string;
+	startedAt: number;
+	endedAt: number;
+	durationMs: number;
+	aiCategory: string | null;
+	hostname: string;
+	url: string;
 }
 
-type ChartMode = "total" | "focused" | "stacked";
+export interface DayTimeline {
+	date: string;
+	blocks: DayTimelineBlock[];
+}
 
-const HOUR_RANGE = { start: 6, end: 18 }; // 06:00 – 18:00
+const HOUR_MS = 3_600_000;
+
+/** Narrowest visible block (as a % of the window) so sub-minute sessions stay
+ *  traceable instead of rendering as an invisible sliver. */
+const MIN_BLOCK_WIDTH_PCT = 2.5;
+/** Cursor threshold for rendering the hostname inside a block. */
+const LABEL_WIDTH_PCT = 9;
 
 const FONT = '"Georgia", "Times New Roman", serif';
 
 const COLORS = {
-	ricePaper: "#FBF7F0",
 	ink: "#5C4B3A",
+	mutedInk: "#85705B",
 	grid: "#E0D7C6",
-	sage: "#A9B87A",
-	sageStroke: "#6F824A",
-	terracotta: "#C79B6F",
-	terracottaStroke: "#8A5B38",
-	gold: "#E8C9A0",
+	sage: "#8B9A6E",
+	terracotta: "#C17A5A",
+	gold: "#D4A853",
+	parchment: "#FBF7F0",
+	boxBorder: "rgba(92, 75, 58, 0.14)",
 	tooltipBg: "#2B2116",
 };
 
-function dataUri(svg: string): string {
-	return `data:image/svg+xml;base64,${btoa(svg.trim())}`;
+const PRODUCTIVE_CATEGORIES = [
+	"productive",
+	"deep_work",
+	"learning",
+	"research",
+	"coding",
+	"writing",
+	"planning",
+	"reading",
+	"analysis",
+];
+
+const DISTRACTING_CATEGORIES = [
+	"distracting",
+	"dopamine_shorts",
+	"social_media",
+	"gaming",
+	"streaming",
+	"entertainment",
+	"shopping",
+	"browsing",
+	"gambling",
+	"adult_content",
+];
+
+type Verdict = "Good" | "Bad" | "Passive";
+
+function verdictFor(category: string | null | undefined): Verdict {
+	const c = (category ?? "neutral").trim().toLowerCase();
+	if (PRODUCTIVE_CATEGORIES.includes(c)) return "Good";
+	if (DISTRACTING_CATEGORIES.includes(c)) return "Bad";
+	return "Passive";
 }
 
-/** A tiled SVG lotus / mandala motif, used as an ApexCharts image fill. */
-function lotusPattern(background: string, stroke: string): string {
-	const rosaceOf = (petal: string) =>
-		Array.from({ length: 8 }, (_, i) => {
-			const angle = i * 45;
-			return `<use href="#${petal}" transform="rotate(${angle} 12 12)"/>`;
-		}).join("");
-	return dataUri(`
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <defs>
-    <path id="petal" d="M12 2.6 C 13.2 6.6, 13.9 9.6, 12 12.8 C 10.1 9.6, 10.8 6.6, 12 2.6 Z"/>
-    <path id="petalOuter" d="M12 9.5 C 13.4 13.4, 14.4 16.5, 12 19.5 C 9.6 16.5, 10.6 13.4, 12 9.5 Z"/>
-  </defs>
-  <rect width="24" height="24" fill="${background}"/>
-  <g fill="none" stroke="${stroke}" stroke-width="0.5" opacity="0.7">${rosaceOf("petalOuter")}</g>
-  <g fill="none" stroke="${stroke}" stroke-width="0.6" opacity="0.85">${rosaceOf("petal")}</g>
-  <circle cx="12" cy="12" r="1.1" fill="${stroke}" opacity="0.8"/>
-</svg>`);
+function colorForCategory(category: string | null | undefined): string {
+	switch (verdictFor(category)) {
+		case "Good":
+			return COLORS.sage;
+		case "Bad":
+			return COLORS.terracotta;
+		default:
+			return COLORS.gold;
+	}
 }
 
-const LOTUS_SAGE = lotusPattern(COLORS.sage, COLORS.sageStroke);
-const LOTUS_TERRACOTTA = lotusPattern(COLORS.terracotta, COLORS.terracottaStroke);
+function formatTime(epochMs: number): string {
+	return dayjs(epochMs).format("h:mm a");
+}
 
-const HOUR_LABELS = Array.from({ length: HOUR_RANGE.end - HOUR_RANGE.start }, (_, i) => {
-	const h = HOUR_RANGE.start + i;
-	if (h === 12) return "12 PM";
-	return h < 12 ? `${h} AM` : `${h - 12} PM`;
-});
+function formatMinutes(ms: number): string {
+	const mins = ms / 60_000;
+	return mins < 1 ? "<1 min" : `${Math.round(mins)} min`;
+}
 
-function minutesLabel(value: number): string {
-	const n = Number(value) || 0;
-	return n > 0 ? `${n.toFixed(1)} min` : "—";
+function minutesOrZero(value: number): number {
+	return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+/**
+ * Greedy interval packing: assigns each session to the first row whose last
+ * block ends before it starts, creating new rows only when every existing row
+ * is occupied. This yields the "stack by stack" rows — back-to-back visits sit
+ * side-by-side on the same track, overlapping windows cascade onto new tracks.
+ */
+function layoutTracks(blocks: DayTimelineBlock[]): DayTimelineBlock[][] {
+	const sorted = [...blocks].sort(
+		(a, b) => a.startedAt - b.startedAt || a.endedAt - b.endedAt,
+	);
+	const tracks: DayTimelineBlock[][] = [];
+	for (const block of sorted) {
+		const index = tracks.findIndex(
+			(track) => track[track.length - 1].endedAt <= block.startedAt,
+		);
+		if (index >= 0) tracks[index].push(block);
+		else tracks.push([block]);
+	}
+	return tracks;
+}
+
+interface WindowRange {
+	start: number;
+	end: number;
+	spanMs: number;
+}
+
+/** True span of a day's activity, floored/ceiled to the hour for clean ticks. */
+function computeWindow(blocks: DayTimelineBlock[]): WindowRange | null {
+	let min = Number.POSITIVE_INFINITY;
+	let max = Number.NEGATIVE_INFINITY;
+	for (const block of blocks) {
+		if (block.durationMs <= 0) continue;
+		min = Math.min(min, block.startedAt);
+		max = Math.max(max, block.endedAt);
+	}
+	if (!Number.isFinite(min)) return null;
+
+	const start = Math.floor(min / HOUR_MS) * HOUR_MS;
+	let end = Math.ceil(max / HOUR_MS) * HOUR_MS;
+	if (end - start < HOUR_MS) end = start + HOUR_MS;
+	return { start, end, spanMs: end - start };
 }
 
 interface HourlyProductivityChartProps {
@@ -75,37 +150,29 @@ interface HourlyProductivityChartProps {
 }
 
 /**
- * Today's (or any day's) tracked activity, one patterned bar per hour.
- * Fetches `get_hourly_activity` for the visible day and renders a calm,
- * lotus-tiled column chart on a warm rice-paper background.
+ * Today's Vinaya — a single stacked-block graph of the day's tracked sessions.
+ * Each website visit is a bar parked on the X-axis at `startedAt`, widened by
+ * `durationMs`, sitcked onto rows so overlapping sessions don't collide, and
+ * tinted by the Intelligence Layer verdict (Good / Passive / Bad).
  */
 export default function HourlyProductivityChart({
 	className,
 }: HourlyProductivityChartProps) {
 	const [cursor, setCursor] = useState(() => dayjs().startOf("day"));
-	const [mode, setMode] = useState<ChartMode>("total");
-	const [data, setData] = useState<HourlyActivity[]>([]);
+	const [blocks, setBlocks] = useState<DayTimelineBlock[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const selectedDate = cursor.format("YYYY-MM-DD");
 	const isToday = cursor.isSame(dayjs(), "day");
-	const totalMinutes = useMemo(
-		() => data.reduce((sum, d) => sum + d.totalMinutes, 0),
-		[data],
-	);
 
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);
-		invoke<HourlyActivity[]>("get_hourly_activity", {
-			date: selectedDate,
-			startHour: HOUR_RANGE.start,
-			endHour: HOUR_RANGE.end,
-		})
-			.then((rows) => {
+		invoke<DayTimeline>("get_timeline", { date: selectedDate })
+			.then((timeline) => {
 				if (cancelled) return;
-				setData(rows);
+				setBlocks((timeline?.blocks ?? []).filter((b) => b.durationMs > 0));
 				setError(null);
 			})
 			.catch((err) => {
@@ -126,122 +193,34 @@ export default function HourlyProductivityChart({
 		setCursor((c) => c.add(delta, "day"));
 	};
 
-	const series = useMemo(() => {
-		switch (mode) {
-			case "focused":
-				return [{ name: "Focused Minutes", data: data.map((d) => d.productiveMinutes) }];
-			case "stacked":
-				return [
-					{ name: "Focused Minutes", data: data.map((d) => d.productiveMinutes) },
-					{ name: "Relaxed Minutes", data: data.map((d) => d.distractingMinutes) },
-				];
-			default:
-				return [{ name: "Mindful Minutes", data: data.map((d) => d.totalMinutes) }];
+	const window = useMemo(() => computeWindow(blocks), [blocks]);
+
+	const hourTicks = useMemo(() => {
+		if (!window) return [];
+		const stepHours = Math.max(1, Math.ceil(window.spanMs / HOUR_MS / 6));
+		const ticks: number[] = [];
+		for (let t = window.start; t <= window.end; t += stepHours * HOUR_MS) {
+			ticks.push(t);
 		}
-	}, [data, mode]);
+		return ticks;
+	}, [window]);
 
-	const options = useMemo<ApexOptions>(() => {
-		const stacked = mode === "stacked";
-		const maxPerHour =
-			stacked
-				? Math.max(0, ...data.map((d) => d.productiveMinutes + d.distractingMinutes))
-				: mode === "focused"
-					? Math.max(0, ...data.map((d) => d.productiveMinutes))
-					: Math.max(0, ...data.map((d) => d.totalMinutes));
-		const yMax = Math.max(60, Math.ceil(maxPerHour / 10) * 10);
+	const tracks = useMemo(() => layoutTracks(blocks), [blocks]);
 
-		return {
-			chart: {
-				type: "bar",
-				background: COLORS.ricePaper,
-				toolbar: { show: false },
-				fontFamily: FONT,
-				parentHeightOffset: 0,
-				animations: { enabled: true, easing: "easeout", speed: 700 },
-			},
-			colors: stacked
-				? [COLORS.sage, COLORS.terracotta]
-				: [COLORS.sage],
-			plotOptions: {
-				bar: {
-					borderRadius: 6,
-					columnWidth: "55%",
-					stacked,
-				},
-			},
-			fill: {
-				type: stacked ? ["image", "image"] : "image",
-				image: {
-					src: stacked ? [LOTUS_SAGE, LOTUS_TERRACOTTA] : LOTUS_SAGE,
-					width: 24,
-					height: 24,
-				},
-			},
-			stroke: { show: false },
-			grid: {
-				borderColor: COLORS.grid,
-				strokeDashArray: 4,
-				padding: { left: -4, right: 4 },
-			},
-			xaxis: {
-				categories: HOUR_LABELS,
-				labels: {
-					style: { colors: COLORS.ink, fontSize: "12px", fontFamily: FONT },
-				},
-				axisBorder: { show: false },
-				axisTicks: { show: false },
-			},
-			yaxis: {
-				min: 0,
-				max: yMax,
-				tickAmount: 6,
-				labels: {
-					style: { colors: COLORS.ink, fontSize: "12px", fontFamily: FONT },
-					formatter: (value: number) => `${Math.round(value)}`,
-				},
-			},
-			tooltip: {
-				theme: "dark",
-				fillSeriesColor: false,
-				style: {
-					color: COLORS.gold,
-					fontSize: "12px",
-					fontFamily: FONT,
-					background: COLORS.tooltipBg,
-				},
-				y: {
-					formatter: (value: number) => minutesLabel(value),
-				},
-			},
-			dataLabels: {
-				position: "top",
-				formatter: (value: number | string) => {
-					const n = Number(value);
-					return n > 0 ? String(Math.round(n)) : "";
-				},
-				offsetY: -4,
-				style: { colors: [COLORS.ink], fontSize: "11px", fontFamily: FONT },
-			},
-			legend: {
-				show: stacked,
-				position: "top",
-				horizontalAlign: "right",
-				labels: { colors: COLORS.ink },
-				fontFamily: FONT,
-				markers: { shape: "circle" },
-			},
-			noData: {
-				text: "A quiet day — nothing tracked yet",
-				style: { colors: [COLORS.ink], fontFamily: FONT },
-			},
-		};
-	}, [data, mode]);
+	const summary = useMemo(() => {
+		const totalMs = blocks.reduce(
+			(sum, b) => sum + minutesOrZero(b.durationMs),
+			0,
+		);
+		const siteCount = new Set(blocks.map((b) => b.hostname)).size;
+		return { totalMs, siteCount };
+	}, [blocks]);
 
 	return (
 		<div
 			className={cn("rounded-3xl border p-5 sm:p-6", className)}
 			style={{
-				backgroundColor: COLORS.ricePaper,
+				backgroundColor: COLORS.parchment,
 				borderColor: "rgba(92, 75, 58, 0.16)",
 				boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
 			}}
@@ -282,10 +261,7 @@ export default function HourlyProductivityChart({
 						</button>
 						<button
 							type="button"
-							onClick={() => {
-								setCursor(dayjs().startOf("day"));
-								setMode("total");
-							}}
+							onClick={() => setCursor(dayjs().startOf("day"))}
 							disabled={isToday}
 							className="rounded-full border px-2 py-0.5 text-[11px] transition-colors hover:bg-black/5 disabled:opacity-30"
 							style={{
@@ -299,59 +275,171 @@ export default function HourlyProductivityChart({
 					</div>
 				</div>
 
-				<div className="flex items-center gap-1 rounded-full p-1" style={{ backgroundColor: "#F2EADB" }}>
-					{(
-						[
-							{ key: "total", label: "Total" },
-							{ key: "focused", label: "Focused" },
-							{ key: "stacked", label: "Focused + Relaxed" },
-						] as const
-					).map((item) => (
-						<button
-							key={item.key}
-							type="button"
-							onClick={() => setMode(item.key)}
-							className={cn(
-								"rounded-full px-3 py-1 text-xs transition-colors",
-								mode === item.key && "shadow-sm",
-							)}
-							style={{
-								color: COLORS.ink,
-								fontFamily: FONT,
-								fontWeight: mode === item.key ? 600 : 400,
-								backgroundColor: mode === item.key ? "#FFFFFF" : "transparent",
-							}}
-						>
-							{item.label}
-						</button>
-					))}
+				<div
+					className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]"
+					style={{ color: COLORS.mutedInk }}
+				>
+					<span className="flex items-center gap-1.5">
+						<span
+							className="h-2.5 w-2.5 rounded-full"
+							style={{ backgroundColor: COLORS.sage }}
+						/>
+						Good
+					</span>
+					<span className="flex items-center gap-1.5">
+						<span
+							className="h-2.5 w-2.5 rounded-full"
+							style={{ backgroundColor: COLORS.gold }}
+						/>
+						Passive
+					</span>
+					<span className="flex items-center gap-1.5">
+						<span
+							className="h-2.5 w-2.5 rounded-full"
+							style={{ backgroundColor: COLORS.terracotta }}
+						/>
+						Bad
+					</span>
 				</div>
 			</div>
 
 			{error ? (
-				<p className="py-8 text-center text-sm text-red-800/70" style={{ fontFamily: FONT }}>
-					Could not load the hour chart: {error}
+				<p
+					className="py-8 text-center text-sm text-red-800/70"
+					style={{ fontFamily: FONT }}
+				>
+					Could not load the day&apos;s timeline: {error}
 				</p>
-			) : loading && data.length === 0 ? (
+			) : loading && blocks.length === 0 ? (
 				<div
 					className="flex h-72 items-center justify-center text-sm"
 					style={{ color: COLORS.ink, opacity: 0.55, fontFamily: FONT }}
 				>
 					Sitting with the data…
 				</div>
-			) : (
-				<>
-					{!loading && totalMinutes === 0 && (
-						<p
-							className="mb-2 text-center text-xs"
-							style={{ color: COLORS.ink, opacity: 0.6, fontFamily: FONT, fontStyle: "italic" }}
-						>
-							Nothing tracked in these hours — a deeply still day.
-						</p>
-					)}
-					<ApexChart options={options} series={series} type="bar" height={280} />
-				</>
-			)}
+			) : blocks.length === 0 ? (
+				<div
+					className="flex h-64 flex-col items-center justify-center gap-2 text-sm"
+					style={{ color: COLORS.ink, opacity: 0.55, fontFamily: FONT }}
+				>
+					No websites tracked this day — a deeply still one.
+				</div>
+			) : window ? (
+				<div className="flex flex-col gap-3">
+					<p
+						className="text-xs"
+						style={{ color: COLORS.mutedInk, fontFamily: FONT }}
+					>
+						{blocks.length} sessions across {summary.siteCount}{" "}
+						{summary.siteCount === 1 ? "site" : "sites"} ·{" "}
+						{formatMinutes(summary.totalMs)} tracked
+					</p>
+
+					<div
+						className="flex flex-col gap-2 rounded-2xl border bg-white/60 px-4 py-4"
+						style={{ borderColor: COLORS.boxBorder }}
+					>
+						<div className="mt-1 flex flex-col gap-1.5">
+							{tracks.map((track, row) => (
+								<div
+									key={track[0]?.id ?? `track-${row}`}
+									className="relative min-h-11"
+									style={{
+										height: 44,
+										backgroundImage: `linear-gradient(to right, ${COLORS.grid}21 1px, transparent 1px)`,
+										backgroundSize: `${100 / 6}% 100%`,
+										borderRadius: 10,
+									}}
+								>
+									{track.map((block) => {
+										const color = colorForCategory(block.aiCategory);
+										const verdict = verdictFor(block.aiCategory);
+										const leftPct =
+											((block.startedAt - window.start) / window.spanMs) * 100;
+										const widthPct = Math.max(
+											MIN_BLOCK_WIDTH_PCT,
+											(block.durationMs / window.spanMs) * 100,
+										);
+										return (
+											<div
+												key={block.id}
+												className="group/block absolute top-1/2 h-8 -translate-y-1/2 cursor-default"
+												style={{
+													left: `${leftPct}%`,
+													width: `${widthPct}%`,
+												}}
+											>
+												<div
+													className="flex h-full w-full items-center overflow-hidden rounded-lg border px-1.5 transition-transform group-hover/block:scale-[1.03]"
+													style={{
+														backgroundColor: `${color}CC`,
+														borderColor: `${color}`,
+														boxShadow: `0 6px 14px ${color}2E`,
+													}}
+												>
+													{widthPct >= LABEL_WIDTH_PCT && (
+														<span
+															className="truncate pl-0.5 text-[11px] leading-none font-medium text-white"
+															style={{
+																fontFamily: FONT,
+																textShadow: "0 1px 2px rgba(40,25,10,0.35)",
+															}}
+														>
+															{block.hostname}
+														</span>
+													)}
+												</div>
+
+												<div className="pointer-events-none absolute top-[calc(100%+6px)] left-1/2 z-20 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg border border-white/10 bg-black/90 px-3 py-2 text-xs text-white shadow-xl group-hover/block:block">
+													<p className="flex items-center gap-1.5 font-semibold">
+														<span
+															className="h-2 w-2 shrink-0 rounded-full"
+															style={{ backgroundColor: color }}
+														/>
+														{block.hostname}
+													</p>
+													<p className="mt-1 whitespace-nowrap text-white/80">
+														{formatTime(block.startedAt)} –{" "}
+														{formatTime(block.endedAt)}
+													</p>
+													<p className="text-white/70">
+														{formatMinutes(block.durationMs)} · {verdict}
+													</p>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							))}
+
+							<div
+								className="relative"
+								style={{
+									backgroundImage: `linear-gradient(to right, ${COLORS.grid}55 1px, transparent 1px)`,
+									backgroundSize: `${100 / 6}% 100%`,
+								}}
+							>
+								{hourTicks.map((tick) => {
+									const leftPct = ((tick - window.start) / window.spanMs) * 100;
+									return (
+										<span
+											key={tick}
+											className="absolute -translate-x-1/2 pt-1 text-[10px]"
+											style={{
+												left: `${leftPct}%`,
+												color: COLORS.mutedInk,
+												fontFamily: FONT,
+											}}
+										>
+											{formatTime(tick)}
+										</span>
+									);
+								})}
+							</div>
+						</div>
+					</div>
+				</div>
+			) : null}
 		</div>
 	);
 }
