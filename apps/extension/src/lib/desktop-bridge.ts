@@ -47,12 +47,16 @@ async function discoverPort(): Promise<number | null> {
     const stored = await chrome.storage.local.get(PORT_CACHE_KEY)
     const cached = stored[PORT_CACHE_KEY] as number | undefined
 
-    if (cached && (await probePort(cached))) return cached
+    if (cached && (await probePort(cached))) {
+        console.log("Discovered port (cached):", cached)
+        return cached
+    }
 
-    for (let port = PORT_RANGE_START; port < PORT_RANGE_END; port++) {
+    for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
         if (port === cached) continue
 
         if (await probePort(port)) {
+            console.log("Discovered port:", port)
             await chrome.storage.local.set({ [PORT_CACHE_KEY]: port })
             return port
         }
@@ -240,9 +244,12 @@ class DesktopBridgeClient {
         const url = await discoverWebSocketUrl()
 
         if (!url) {
+            console.log("Desktop WebSocket URL not found")
             void this.onAppUnavailable()
             return
         }
+
+        console.log("Connecting to desktop:", url)
 
         this.passiveMode = false
 
@@ -431,6 +438,7 @@ class DesktopBridgeClient {
     }
 
     private rawSend(data: object): void {
+        if (!this.socket) return
         try {
             this.socket.send(JSON.stringify(data))
         } catch (error) { }
@@ -439,7 +447,7 @@ class DesktopBridgeClient {
     async send(event: VinayaEvent) {
         const entry = await appendToLog(event)
 
-        if (this.connected && this.socket.readyState === WebSocket.OPEN) {
+        if (this.connected && this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.rawSend({ entryId: entry.id, ...event })
         }
         console.log("Event: ", event)

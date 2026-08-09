@@ -3,12 +3,20 @@ mod behavior;
 mod commands;
 mod config;
 mod db;
+mod desktop_tracker;
+mod event_processor;
 mod models;
 mod state;
 mod tasks;
 mod websocket;
 
+#[cfg(test)]
+mod integration_tests;
+
 use tauri::Manager;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::Layer;
 
 use crate::state::AppState;
 
@@ -17,13 +25,17 @@ fn init_tracing() {
     let file_appender = tracing_appender::rolling::daily("logs", "frocus.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_ansi(false).with_filter(filter.clone()))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(non_blocking)
+                .with_ansi(false)
+                .with_filter(filter),
         )
-        .with_writer(non_blocking)
-        .with_ansi(false)
         .init();
 
     // Keep the log worker alive for the life of the process.
@@ -73,6 +85,10 @@ pub fn run() {
                 tasks::data_retention::spawn_data_retention(retention_state).await;
             });
 
+            // Native-app window tracking daemon (desktop sessions feed the same
+            // pipeline as the browser extension).
+            desktop_tracker::start(state.clone());
+
             tracing::info!("Frocus backend initialized");
             Ok(())
         })
@@ -91,6 +107,8 @@ pub fn run() {
             commands::constraints::get_pending_commands_count,
             commands::settings::update_settings,
             commands::settings::get_settings,
+            commands::desktop_tracking::toggle_desktop_tracking,
+            commands::desktop_tracking::get_desktop_tracking_status,
             commands::analytics::get_daily_focus_summary,
             commands::analytics::get_weekly_report,
             commands::analytics::get_habit_adherence,
@@ -99,6 +117,9 @@ pub fn run() {
             commands::analytics::get_timeline,
             commands::analytics::get_hourly_activity,
             commands::productivity::get_productivity_grid,
+            commands::dashboard::get_user_behavior_trend,
+            commands::dashboard::get_negative_works,
+            commands::dashboard::get_correction_advice,
             commands::tasks::add_task,
             commands::tasks::update_task,
             commands::tasks::delete_task,

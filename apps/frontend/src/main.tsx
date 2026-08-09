@@ -18,6 +18,8 @@ import Sessions from "./domain/Sessions";
 import Settings from "./domain/Settings";
 import System from "./domain/System";
 import Tasks from "./domain/Tasks";
+import UnifiedDashboard from "./pages/Dashboard";
+import NegativeWorksDetail from "./pages/NegativeWorksDetail";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -40,6 +42,14 @@ const router = createBrowserRouter([
 	{
 		path: "/app",
 		element: <Dashboard />,
+	},
+	{
+		path: "/dashboard",
+		element: <UnifiedDashboard />,
+	},
+	{
+		path: "/negative-works",
+		element: <NegativeWorksDetail />,
 	},
 	{
 		path: "/rules",

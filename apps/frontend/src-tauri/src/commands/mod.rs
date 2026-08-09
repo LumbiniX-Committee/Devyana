@@ -1,5 +1,7 @@
 pub mod analytics;
 pub mod constraints;
+pub mod dashboard;
+pub mod desktop_tracking;
 pub mod notifications;
 pub mod productivity;
 pub mod profile;

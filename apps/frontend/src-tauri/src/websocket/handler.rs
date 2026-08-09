@@ -7,8 +7,6 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::accept_hdr_async;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::ai;
-use crate::behavior;
 use crate::db::models::NewSession;
 use crate::db::queries;
 use crate::state::AppState;
@@ -143,6 +141,13 @@ pub async fn handle_connection(state: AppState, stream: TcpStream, peer: SocketA
 async fn process_event(state: &AppState, client_id: Option<&str>, env: &EventEnvelope) -> bool {
     match &env.event {
         VinayaEvent::SessionEnd(event) => {
+            tracing::info!(
+                entry_id = %env.entry_id,
+                client_id = %event.client_id,
+                hostname = %event.hostname,
+                duration_ms = event.duration_ms,
+                "session_end received"
+            );
             let meta = if event.meta.is_null()
                 || event
                     .meta
@@ -179,41 +184,11 @@ async fn process_event(state: &AppState, client_id: Option<&str>, env: &EventEnv
                 category: event.category.clone(),
             };
 
-            match queries::insert_session(&state.db, &new_session).await {
-                Ok(()) => {
-                    tracing::info!(
-                        session_id = %new_session.id,
-                        client_id = %new_session.client_id,
-                        hostname = %new_session.hostname,
-                        duration_ms = new_session.duration_ms,
-                        aggregated_from = new_session.aggregated_from.unwrap_or(1),
-                        "session stored"
-                    );
-                    if let Err(err) =
-                        behavior::evaluator::evaluate_for_session(state, &new_session).await
-                    {
-                        tracing::warn!(error = %err, "constraint evaluation failed");
-                    }
-                    // Fire-and-forget auto-completion pass against the raw
-                    // session (rule/duration triggers). The categorized pass
-                    // runs again after AI classification in `ai::mod.rs`.
-                    let auto_state = state.clone();
-                    let auto_session = new_session.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(err) = crate::tasks::auto_complete::check_auto_complete(
-                            &auto_state,
-                            &auto_session,
-                        )
-                        .await
-                        {
-                            tracing::warn!(error = %err, "auto-completion check failed");
-                        }
-                    });
-                    ai::spawn_classification(state, new_session);
-                }
-                Err(err) => {
-                    tracing::error!(entry_id = %env.entry_id, error = %err, "failed to store session");
-                }
+            // Shared pipeline (insert + evaluation + auto-completion + AI
+            // classification) — same code path the desktop tracker uses.
+            if let Err(err) = crate::event_processor::handle_session_end(state, new_session).await
+            {
+                tracing::error!(entry_id = %env.entry_id, error = %err, "failed to store session");
             }
             true
         }

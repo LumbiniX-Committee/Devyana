@@ -8,6 +8,7 @@ use crate::models::analytics::{
     CategoryBucket, FocusModeStatus, FocusSummary, HabitAdherence, HourlyActivity, SiteStat,
     Timeline, TimelineBlock,
 };
+use crate::models::dashboard::{negative_work_description, DailyBehavior, NegativeWorkItem};
 use crate::models::tasks::DayProductivity;
 
 /// Categories treated as productive for analytics/insights.
@@ -32,6 +33,21 @@ pub const DISTRACTING_CATEGORIES: &[&str] = &[
     "shopping",
     "browsing",
     "gambling",
+];
+
+/// Categories surfaced as "Negative Works" (unwholesome activities) on the
+/// dashboard. The list is intentionally a strict subset of the distracting
+/// categories — it powers the reflection cards, not the analytics totals.
+pub const NEGATIVE_CATEGORIES: &[&str] = &[
+    "dopamine_shorts",
+    "social_media",
+    "gambling",
+    "adult_content",
+    "gaming",
+    "streaming",
+    "entertainment",
+    "shopping",
+    "browsing",
 ];
 
 /// A productive session at least this long counts as a "focus block".
@@ -465,6 +481,114 @@ pub async fn category_breakdown(
             category: row.get::<String, _>("category"),
             total_ms: row.get::<i64, _>("total"),
             session_count: row.get::<i64, _>("cnt"),
+        })
+        .collect())
+}
+
+// ---------------------------------------------------------------------------
+// Unified dashboard (behavior trend + negative works)
+// ---------------------------------------------------------------------------
+
+/// Daily productive / distracting minutes over the trailing `days` days
+/// (inclusive of today), one row per calendar day in local time. Days without
+/// any tracked activity are zero-filled so the chart renders a contiguous
+/// window. Categories come from the shared hardcoded productive/distracting
+/// lists.
+pub async fn user_behavior_trend(
+    pool: &SqlitePool,
+    days: i32,
+) -> Result<Vec<DailyBehavior>, String> {
+    let days = days.clamp(1, 365);
+    let today = Local::now().date_naive();
+    let start = today
+        .checked_sub_days(chrono::Days::new((days - 1) as u64))
+        .ok_or("date underflow")?;
+    let start_date = start.format("%Y-%m-%d").to_string();
+    let end_date = today.format("%Y-%m-%d").to_string();
+    let (start_ms, end_ms) = range_bounds_ms(&start_date, &end_date)?;
+
+    let rows = sqlx::query(
+        "SELECT started_at, duration_ms, ai_category FROM sessions
+         WHERE started_at >= ? AND started_at < ?",
+    )
+    .bind(start_ms)
+    .bind(end_ms)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("user behavior trend: {e}"))?;
+
+    let mut productive: HashMap<String, f64> = HashMap::new();
+    let mut distracting: HashMap<String, f64> = HashMap::new();
+    for row in rows {
+        let started_at: i64 = row.try_get("started_at").unwrap_or(0);
+        let duration_ms: i64 = row.try_get("duration_ms").unwrap_or(0);
+        let category: Option<String> = row
+            .try_get::<Option<String>, _>("ai_category")
+            .ok()
+            .flatten();
+
+        let day = crate::db::summaries::date_key_for_epoch(started_at);
+        let minutes = duration_ms as f64 / 60_000.0;
+        match category.as_deref() {
+            Some(c) if PRODUCTIVE_CATEGORIES.contains(&c) => {
+                *productive.entry(day).or_insert(0.0) += minutes;
+            }
+            Some(c) if DISTRACTING_CATEGORIES.contains(&c) => {
+                *distracting.entry(day).or_insert(0.0) += minutes;
+            }
+            _ => {}
+        }
+    }
+
+    let snap = |x: f64| (x * 100.0).round() / 100.0;
+    Ok(crate::db::summaries::day_keys(&start_date, &end_date)?
+        .into_iter()
+        .map(|date| DailyBehavior {
+            productive_minutes: snap(*productive.get(&date).unwrap_or(&0.0)),
+            distracting_minutes: snap(*distracting.get(&date).unwrap_or(&0.0)),
+            date,
+        })
+        .collect())
+}
+
+/// Durations grouped by negative `ai_category` over `[start_date, end_date]`
+/// (inclusive), ordered by total descending. Every row carries a human-readable
+/// description from the category lookup table.
+pub async fn negative_works(
+    pool: &SqlitePool,
+    start_date: &str,
+    end_date: &str,
+) -> Result<Vec<NegativeWorkItem>, String> {
+    let (start, end) = range_bounds_ms(start_date, end_date)?;
+    let ph = in_list(NEGATIVE_CATEGORIES.len());
+
+    let sql = format!(
+        "SELECT ai_category AS category, SUM(duration_ms) AS total, COUNT(*) AS cnt
+         FROM sessions
+         WHERE started_at >= ? AND started_at < ? AND ai_category IN {ph}
+         GROUP BY ai_category ORDER BY total DESC"
+    );
+    let mut query = sqlx::query(&sql);
+    query = query.bind(start).bind(end);
+    for category in NEGATIVE_CATEGORIES {
+        query = query.bind(category);
+    }
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("negative works: {e}"))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let category = row.get::<String, _>("category");
+            let total_ms = row.get::<i64, _>("total");
+            NegativeWorkItem {
+                category: category.clone(),
+                total_minutes: ((total_ms as f64 / 60_000.0) * 100.0).round() / 100.0,
+                session_count: row.get::<i64, _>("cnt") as i32,
+                description: negative_work_description(&category),
+            }
         })
         .collect())
 }
@@ -947,6 +1071,97 @@ mod tests {
             hourly_activity(&pool, &today, -1, 18).await.is_err(),
             "out of range rejected"
         );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn user_behavior_trend_buckets_days_and_zero_fills() {
+        let dir = std::env::temp_dir().join(format!("frocus-trend-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let pool = crate::db::pool::create_pool(&dir.join("test.db"))
+            .await
+            .expect("pool");
+
+        let today = crate::db::summaries::today_key();
+        let (day_start, _end) = day_bounds_ms(&today).expect("bounds today");
+
+        // Today: 30 min learning (productive) + 20 min shorts (distracting).
+        let learning = make_session("b1", "youtube.com", "/learn", day_start, day_start + 1_800_000);
+        let shorts = make_session("b2", "youtube.com", "/shorts", day_start + 1_800_000, day_start + 3_000_000);
+
+        for s in [&learning, &shorts] {
+            crate::db::queries::insert_session(&pool, s)
+                .await
+                .expect("insert");
+        }
+        crate::db::queries::update_session_ai_category(&pool, &learning.id, "learning")
+            .await
+            .expect("cat1");
+        crate::db::queries::update_session_ai_category(&pool, &shorts.id, "dopamine_shorts")
+            .await
+            .expect("cat2");
+
+        let trend = user_behavior_trend(&pool, 30).await.expect("trend");
+        assert_eq!(trend.len(), 30, "trailing 30 days, zero-filled");
+        let last = trend.last().expect("latest day");
+        assert_eq!(last.date, today);
+        assert!((last.productive_minutes - 30.0).abs() < 1e-6);
+        assert!((last.distracting_minutes - 20.0).abs() < 1e-6);
+        assert!(trend[0].productive_minutes == 0.0 && trend[0].distracting_minutes == 0.0);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn negative_works_groups_categories_and_count() {
+        let dir = std::env::temp_dir().join(format!("frocus-neg-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let pool = crate::db::pool::create_pool(&dir.join("test.db"))
+            .await
+            .expect("pool");
+
+        let today = crate::db::summaries::today_key();
+        let (start, _) = day_bounds_ms(&today).expect("bounds today");
+
+        let shorts_a = make_session("n1", "youtube.com", "/shorts", start, start + 900_000);
+        let shorts_b = make_session("n2", "youtube.com", "/shorts", start + 900_000, start + 1_500_000);
+        let instagram = make_session("n3", "instagram.com", "/", start + 1_500_000, start + 2_700_000);
+        let learning = make_session("n4", "github.com", "/", start + 2_700_000, start + 2_760_000);
+
+        for s in [&shorts_a, &shorts_b, &instagram, &learning] {
+            crate::db::queries::insert_session(&pool, s)
+                .await
+                .expect("insert");
+        }
+        crate::db::queries::update_session_ai_category(&pool, &shorts_a.id, "dopamine_shorts")
+            .await
+            .expect("cat1");
+        crate::db::queries::update_session_ai_category(&pool, &shorts_b.id, "dopamine_shorts")
+            .await
+            .expect("cat2");
+        crate::db::queries::update_session_ai_category(&pool, &instagram.id, "social_media")
+            .await
+            .expect("cat3");
+        crate::db::queries::update_session_ai_category(&pool, &learning.id, "learning")
+            .await
+            .expect("cat4");
+
+        let items = negative_works(&pool, &today, &today).await.expect("negative");
+        assert_eq!(items.len(), 2, "learning categories are excluded");
+        let shorts = items
+            .iter()
+            .find(|i| i.category == "dopamine_shorts")
+            .expect("shorts bucket");
+        assert!((shorts.total_minutes - 25.0).abs() < 1e-6, "10 + 15 min");
+        assert_eq!(shorts.session_count, 2);
+        assert_eq!(shorts.description, "YouTube Shorts");
+
+        let social = items
+            .iter()
+            .find(|i| i.category == "social_media")
+            .expect("social bucket");
+        assert!((social.total_minutes - 20.0).abs() < 1e-6);
 
         std::fs::remove_dir_all(&dir).ok();
     }

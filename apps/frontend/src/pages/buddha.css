@@ -1,0 +1,84 @@
+/*
+  UNIFIED DASHBOARD — buddha.css
+  Theme: warm rice-paper Buddhist palette, applied while the dashboard and
+  negative-works pages are mounted (scoped via `data-buddha-theme` on <body>)
+  so Tailwind's semantic tokens (bg-card, text-muted-foreground, ...) resolve
+  to parchment throughout, including Radix/portal'd surfaces.
+*/
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+[data-buddha-theme] {
+	/* Core surfaces — rice paper warmth */
+	--background: #fbf7f0;
+	--foreground: #5c4b3a;
+
+	--card: #fdf8f2;
+	--card-foreground: #5c4b3a;
+
+	--popover: #fdf8f2;
+	--popover-foreground: #5c4b3a;
+
+	/* Accents — sage green, terracotta, gold */
+	--primary: #8b9a6e;
+	--primary-foreground: #ffffff;
+
+	--secondary: #f2eadb;
+	--secondary-foreground: #5c4b3a;
+
+	--muted: #f2eadb;
+	--muted-foreground: #85705b;
+
+	--accent: #efe6d4;
+	--accent-foreground: #5c4b3a;
+
+	/* Negative works — soft blush with red-brown */
+	--destructive: #b85c4a;
+	--destructive-foreground: #ffffff;
+
+	--border: #e0d7c6;
+	--input: #e0d7c6;
+	--ring: #d4a853;
+
+	--chart-1: #8b9a6e;
+	--chart-2: #c17a5a;
+	--chart-3: #d4a853;
+	--chart-4: #b85c4a;
+	--chart-5: #8f7a63;
+
+	--radius: 1rem;
+
+	color: var(--foreground);
+	background: var(--background);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+[data-buddha-theme] * {
+	border-color: var(--border);
+}
+
+[data-buddha-theme] ::selection {
+	background: rgba(139, 154, 110, 0.35);
+	color: var(--foreground);
+}
+
+.buddha-heading {
+	font-family: Georgia, "Times New Roman", serif;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+.buddha-body {
+	font-family:
+		"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Serene hide scrollbars for the horizontal card rails. */
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+.no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}

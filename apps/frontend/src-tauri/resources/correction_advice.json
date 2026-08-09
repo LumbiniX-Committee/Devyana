@@ -1,0 +1,104 @@
+{
+  "dopamine_shorts": {
+    "category": "dopamine_shorts",
+    "title": "Escaping the Infinite Scroll",
+    "steps": [
+      "Place your hand on your heart and take three deep breaths.",
+      "Recall your intention for this session. What did you come to do?",
+      "Open your task list and pick one small task to complete now.",
+      "If the urge persists, set a 5-minute timer and allow yourself a mindful pause."
+    ]
+  },
+  "social_media": {
+    "category": "social_media",
+    "title": "Stepping Away from the Feed",
+    "steps": [
+      "Close the tab and place your phone face-down, out of reach.",
+      "Breathe in for four counts, hold for four, and breathe out for four.",
+      "Name one person or thing you truly care about, and why.",
+      "Choose a real action that honors them — a message, a task, a walk."
+    ]
+  },
+  "gaming": {
+    "category": "gaming",
+    "title": "Returning from the Match",
+    "steps": [
+      "Pause the game, stand up, and stretch your shoulders.",
+      "Take three slow breaths, feeling the ground beneath your feet.",
+      "Ask: what were you about to do before the session began?",
+      "Commit to one 20-minute deep work block before any play."
+    ]
+  },
+  "adult_content": {
+    "category": "adult_content",
+    "title": "Guarding the Mind's Door",
+    "steps": [
+      "Close the tab immediately and step away from the screen.",
+      "Take five slow breaths and observe the urge without chasing it.",
+      "Remind yourself: the craving is impermanent — it will pass.",
+      "Engage your body with something grounding: water, a walk, push-ups.",
+      "If it returns, tell a trusted friend or write one honest line about it."
+    ]
+  },
+  "gambling": {
+    "category": "gambling",
+    "title": "Walking Away from the Wager",
+    "steps": [
+      "Stop, close the tab, and step outside for a few minutes.",
+      "Breathe deeply and notice what the urge is really asking for.",
+      "Remember: the house always wins — this is not a path to safety.",
+      "Set a hard block on this category for the rest of the day.",
+      "Reach out to someone you trust about what you are feeling."
+    ]
+  },
+  "streaming": {
+    "category": "streaming",
+    "title": "Coming Back to the Present",
+    "steps": [
+      "Pause the stream and notice the time that has quietly passed.",
+      "Take three breaths and gently scan how your body feels.",
+      "Return to the task you set for yourself before pressing play.",
+      "Choose a mindful alternative: a walk, music, or writing a few lines."
+    ]
+  },
+  "entertainment": {
+    "category": "entertainment",
+    "title": "Choosing Mindful Rest",
+    "steps": [
+      "Pause and name what rest truly looks like for you today.",
+      "Breathe out slowly and release tension in your jaw and shoulders.",
+      "Swap one binge for one intentional break: a walk, a stretch, a chat.",
+      "Return to your intention and take one small productive step."
+    ]
+  },
+  "shopping": {
+    "category": "shopping",
+    "title": "Letting Go of the Cart",
+    "steps": [
+      "Empty the cart and close the tab with a gentle breath.",
+      "Ask: what need is this purchase trying to fill?",
+      "Write the item down with today's date and revisit it in three days.",
+      "Spend ten minutes on something that costs nothing: a walk, a book."
+    ]
+  },
+  "browsing": {
+    "category": "browsing",
+    "title": "Reclaiming the Wandering Tab",
+    "steps": [
+      "Close every tab except the one task you are doing now.",
+      "Take three breaths and notice the pull to wander.",
+      "Set a timer for 25 minutes and commit to a single task.",
+      "When it rings, stretch and decide consciously what comes next."
+    ]
+  },
+  "generic": {
+    "category": "generic",
+    "title": "A Mindful Return",
+    "steps": [
+      "Pause wherever you are and take three slow, full breaths.",
+      "Notice the urge as a passing cloud — watch it, do not chase it.",
+      "Ask yourself: what was I intending to do today?",
+      "Take one small, kind step toward that intention right now."
+    ]
+  }
+}

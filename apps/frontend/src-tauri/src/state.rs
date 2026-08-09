@@ -8,6 +8,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::ai::AiClient;
 use crate::config::AppSettings;
+use crate::desktop_tracker::DesktopTrackingControl;
 use crate::websocket::registry::SharedRegistry;
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,8 @@ pub struct AppState {
     pub ai_batch_notify: mpsc::UnboundedSender<()>,
     /// Receiver half consumed by `tasks::ai_batcher::start_ai_batcher`.
     pub ai_batch_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<()>>>>,
+    /// Shared control flag for the desktop window tracker daemon.
+    pub desktop_tracking: Arc<DesktopTrackingControl>,
 }
 
 impl AppState {
@@ -61,6 +64,7 @@ impl AppState {
             page_meta_buffer: Arc::new(RwLock::new(HashMap::new())),
             ai_batch_notify,
             ai_batch_rx: Arc::new(Mutex::new(Some(ai_batch_rx))),
+            desktop_tracking: Arc::new(DesktopTrackingControl::new()),
         };
 
         Ok(state)

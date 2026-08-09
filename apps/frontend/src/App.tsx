@@ -39,7 +39,7 @@ function App() {
 	if (!ready) return null;
 
 	return hasProfile ? (
-		<Navigate to="/app" replace />
+		<Navigate to="/dashboard" replace />
 	) : (
 		<div>
 			<Onboarding />

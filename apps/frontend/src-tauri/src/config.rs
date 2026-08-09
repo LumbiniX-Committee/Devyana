@@ -4,7 +4,16 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 fn default_origins() -> Vec<String> {
-    vec!["chrome-extension://".to_string()]
+    // Development default: accept any extension origin so an unpacked /
+    // loaded-from-source extension (which gets a fresh per-profile ID in some
+    // browsers) can always connect regardless of its generated ID.
+    vec![
+        "chrome-extension://".to_string(),
+        "edge-extension://".to_string(),
+        "brave-extension://".to_string(),
+        "moz-extension://".to_string(),
+        "safari-web-extension://".to_string(),
+    ]
 }
 
 fn default_graph_batch_threshold() -> i64 {
@@ -44,6 +53,11 @@ fn default_ai_url_whitelist() -> Vec<String> {
         .into_iter()
         .map(String::from)
         .collect()
+}
+
+/// Desktop window tracking defaults to on.
+fn default_desktop_tracking_enabled() -> bool {
+    true
 }
 
 /// How often the daily summary for the current day is recomputed.
@@ -103,6 +117,9 @@ pub struct AppSettings {
     /// How often the current day's daily_summaries row is refreshed.
     #[serde(default = "default_summary_interval_secs")]
     pub summary_interval_secs: u64,
+    /// Whether the desktop window tracker daemon records native-app sessions.
+    #[serde(default = "default_desktop_tracking_enabled")]
+    pub desktop_tracking_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -124,6 +141,7 @@ impl Default for AppSettings {
             session_retention_days: default_session_retention_days(),
             ai_url_whitelist: default_ai_url_whitelist(),
             summary_interval_secs: default_summary_interval_secs(),
+            desktop_tracking_enabled: default_desktop_tracking_enabled(),
         }
     }
 }

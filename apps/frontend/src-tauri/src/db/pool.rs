@@ -22,10 +22,11 @@ pub async fn create_pool(db_path: &PathBuf) -> Result<SqlitePool, String> {
         .await
         .map_err(|e| format!("open sqlite: {e}"))?;
 
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .map_err(|e| format!("run migrations: {e}"))?;
-
-    Ok(pool)
+    match sqlx::migrate!("./migrations").run(&pool).await {
+        Ok(_) => Ok(pool),
+        Err(err) => {
+            tracing::error!(error = %err, "database migrations failed");
+            Err(format!("run migrations: {err}"))
+        }
+    }
 }

@@ -122,8 +122,16 @@ pub async fn get_profile(
 
 /// Startup guard: whether a user profile already exists in the database. The
 /// frontend uses this to skip onboarding on subsequent launches. The database
-/// is the source of truth — localStorage is only a cache.
+/// is the source of truth — localStorage is only a cache. Any query failure is
+/// treated as "no profile" (with logging) so onboarding is never blocked by a
+/// transient DB hiccup.
 #[tauri::command]
 pub async fn has_profile(state: State<'_, AppState>) -> Result<bool, String> {
-    queries::has_profile(&state.db).await
+    match queries::has_profile(&state.db).await {
+        Ok(exists) => Ok(exists),
+        Err(err) => {
+            tracing::error!(error = %err, "has_profile query failed, treating as no profile");
+            Ok(false)
+        }
+    }
 }
