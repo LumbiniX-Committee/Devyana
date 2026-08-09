@@ -19,6 +19,7 @@ pub struct Session {
     pub tab_id: i64,
     pub aggregated_from: i64,
     pub ai_category: Option<String>,
+    pub bad_topic: Option<String>,
     pub processed_for_graph: i64,
     pub recorded_at: String,
 }

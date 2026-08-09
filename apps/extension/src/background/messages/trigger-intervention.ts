@@ -41,20 +41,20 @@ const handler: PlasmoMessaging.MessageHandler<TriggerInterventionRequest, Trigge
             return;
         }
 
-const url = parseUrl(rawUrl);
+        const url = parseUrl(rawUrl);
         if (!url) {
             res.send({ ok: false, error: "Invalid URL" });
             return;
         }
 
-        tracker.forceIntervention(tabId, {
+        const result = await tracker.forceIntervention(tabId, {
             taskType,
             params,
             durationSec: durationSec ?? 30,
             tasks: []
         });
 
-        res.send({ ok: true });
+        res.send(result.ok ? { ok: true } : result);
     } catch (error) {
         res.send({ ok: false, error: String(error) });
     }

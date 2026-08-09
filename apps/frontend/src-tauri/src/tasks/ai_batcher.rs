@@ -338,6 +338,9 @@ pub async fn flush_now(state: &AppState) -> Result<serde_json::Value, String> {
 /// "new classified session" channel, flushing early when the holding window
 /// fills or ages past the max.
 pub async fn start_ai_batcher(state: AppState) {
+    tracing::info!(
+        "periodic behavior-graph updates are disabled: the Intelligence Layer exposes no graph endpoint"
+    );
     let mut notify_rx: mpsc::UnboundedReceiver<()> = {
         let mut guard = state.ai_batch_rx.lock().await;
         guard.take().expect("ai batcher started twice")
@@ -355,16 +358,12 @@ pub async fn start_ai_batcher(state: AppState) {
     loop {
         tokio::select! {
             _ = ticker.tick() => {
-                if let Err(err) = try_flush(&state).await {
-                    tracing::warn!(error = %err, "scheduled AI flush failed");
-                }
+                tracing::debug!("skipping periodic behavior-graph update");
             }
             signal = notify_rx.recv() => {
                 // Drain further signals queued while we were reacting.
                 while notify_rx.try_recv().is_ok() {}
-                if let Err(err) = try_flush(&state).await {
-                    tracing::warn!(error = %err, "signalled AI flush failed");
-                }
+                tracing::debug!("skipping signalled behavior-graph update");
                 if signal.is_none() {
                     // Sender dropped: the notifier is gone; keep polling on ticks.
                     tracing::debug!("AI batch notify channel closed; timer-only flushing");
@@ -395,6 +394,7 @@ mod tests {
             tab_id: 0,
             aggregated_from: 1,
             ai_category: Some(category.to_string()),
+            bad_topic: None,
             processed_for_graph: 0,
             recorded_at: "2026-08-08 10:00:00".into(),
         }

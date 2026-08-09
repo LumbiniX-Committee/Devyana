@@ -1,4 +1,5 @@
 pub mod client;
+pub mod intelligence_layer_client;
 
 pub use client::AiClient;
 
@@ -9,55 +10,63 @@ use crate::state::AppState;
 pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSession) {
     let state = state.clone();
     tauri::async_runtime::spawn(async move {
-        match client::classify_session(&state, &session).await {
-            Ok(category) => {
-                state.ai_health.record("classify", true, None);
-                tracing::info!(
-                    session_id = %session.id,
-                    %category,
-                    "classified session"
-                );
-                if let Err(err) = crate::db::queries::update_session_ai_category(
-                    &state.db,
-                    &session.id,
-                    &category,
-                )
-                .await
-                {
-                    tracing::warn!(error = %err, "could not persist ai_category");
-                    return;
-                }
-
-                // Wake the AI batcher: a new classified session is queued.
-                let _ = state.ai_batch_notify.send(());
-
-                let updated = crate::db::models::NewSession {
+        let session_data = intelligence_layer_client::session_data_from_session(&session);
+        let known_category = (!session.category.trim().is_empty()
+            && session.category != crate::desktop_tracker::PLACEHOLDER_CATEGORY)
+            .then(|| session.category.clone());
+        let outcome = if let Some(category) = known_category {
+            tracing::debug!(session_id = %session.id, %category, "using category supplied by rule");
+            intelligence_layer_client::ResilientResult {
+                value: vec![intelligence_layer_client::SessionAiResult {
+                    session_id: session.id.clone(),
+                    bad_topic: intelligence_layer_client::fallback_bad_topic_for_url(&session_data.url),
                     category,
-                    ..session
-                };
-                if let Err(err) =
-                    crate::behavior::evaluator::evaluate_for_session(&state, &updated).await
-                {
-                    tracing::warn!(error = %err, "constraint evaluation after classification failed");
-                }
+                }],
+                used_fallback: false,
+            }
+        } else {
+            intelligence_layer_client::IntelligenceLayerClient::from_settings(&state.settings())
+                .classify_sessions_with_status(vec![session_data])
+                .await
+        };
 
-                // Second auto-completion pass with the classified category, so
-                // `ai_category`-based completion triggers can now match.
-                let auto_state = state.clone();
-                let auto_session = updated.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(err) =
-                        crate::tasks::auto_complete::check_auto_complete(&auto_state, &auto_session)
-                            .await
-                    {
-                        tracing::warn!(error = %err, "auto-completion after classification failed");
-                    }
-                });
-            }
-            Err(err) => {
-                state.ai_health.record("classify", false, Some(&err.to_string()));
-                tracing::warn!(session_id = %session.id, error = %err, "classification failed");
-            }
+        let Some(result) = outcome.value.into_iter().next() else {
+            state.ai_health.record("classify", false, Some("classification returned no result"));
+            tracing::error!(session_id = %session.id, "classification returned no result");
+            return;
+        };
+        if outcome.used_fallback {
+            state.ai_health.record("classify", false, Some("local fallback used"));
+            tracing::warn!(session_id = %session.id, category = %result.category, "stored fallback classification");
+        } else {
+            state.ai_health.record("classify", true, None);
+            tracing::info!(session_id = %session.id, category = %result.category, bad_topic = ?result.bad_topic, "classified session");
+        }
+
+        if let Err(err) = crate::db::queries::update_session_ai_result(
+            &state.db,
+            &session.id,
+            &result.category,
+            result.bad_topic.as_deref(),
+        )
+        .await
+        {
+            tracing::warn!(error = %err, "could not persist Intelligence Layer result");
+            return;
+        }
+
+        let updated = crate::db::models::NewSession {
+            category: result.category,
+            ..session
+        };
+        if let Err(err) = crate::behavior::evaluator::evaluate_for_session(&state, &updated).await {
+            tracing::warn!(error = %err, "constraint evaluation after classification failed");
+        }
+
+        // Second auto-completion pass with the classified category, so
+        // `ai_category`-based completion triggers can now match.
+        if let Err(err) = crate::tasks::auto_complete::check_auto_complete(&state, &updated).await {
+            tracing::warn!(error = %err, "auto-completion after classification failed");
         }
     });
 }

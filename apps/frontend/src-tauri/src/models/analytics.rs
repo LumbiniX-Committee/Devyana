@@ -134,6 +134,9 @@ pub struct DashboardSnapshot {
     pub focus_ms_so_far: i64,
     pub focus_blocks_so_far: i64,
     pub distraction_ms_so_far: i64,
+    /// Focus score from the Intelligence Layer (or its deterministic local
+    /// equivalent when the server is unavailable).
+    pub mental_discipline_score: f64,
     pub active_constraints: Vec<ActiveConstraint>,
     pub usage: Vec<RuleUsage>,
     pub upcoming_reminders: Vec<crate::db::models::Notification>,

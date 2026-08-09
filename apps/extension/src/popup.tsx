@@ -74,22 +74,22 @@ const INTERVENTION_TYPES: InterventionType[] = [
     {
         id: "quiz",
         label: "Quiz",
-        description: "Interactive quiz (coming soon)",
-        implemented: false,
+        description: "Interactive mindfulness check-in",
+        implemented: true,
         params: []
     },
     {
         id: "story",
         label: "Story",
-        description: "Guided story (coming soon)",
-        implemented: false,
+        description: "Guided story and reflection",
+        implemented: true,
         params: []
     },
     {
         id: "challenge",
         label: "Challenge",
-        description: "Micro-challenge (coming soon)",
-        implemented: false,
+        description: "Choose a mindful micro-challenge",
+        implemented: true,
         params: []
     }
 ];

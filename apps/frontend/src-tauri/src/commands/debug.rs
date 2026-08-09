@@ -5,8 +5,6 @@
 //! at the mock server) so a demo can prove the full Extension -> Tauri ->
 //! SQLite -> Intelligence Layer flow on demand.
 
-use std::time::Duration;
-
 use chrono::TimeZone;
 use serde::Serialize;
 use sqlx::Row;
@@ -331,24 +329,33 @@ pub struct HealthReport {
     pub all_ok: bool,
 }
 
-/// Returns true when `url` "answers" anything over HTTP (even a 404/405 proves
-/// the server is listening); only transport-level failure means unreachable.
 async fn ai_reachable(state: &AppState) -> (bool, String) {
-    let settings = state.settings();
-    if settings.ai_classify_url.trim().is_empty() {
-        return (false, "classify URL not configured".to_string());
-    }
-    match state
-        .ai
-        .http
-        .get(&settings.ai_classify_url)
-        .timeout(Duration::from_secs(3))
-        .send()
-        .await
-    {
-        Ok(resp) => (true, format!("responded with HTTP {}", resp.status())),
-        Err(err) => (false, err.to_string()),
-    }
+    let check = crate::ai::intelligence_layer_client::IntelligenceLayerClient::from_settings(
+        &state.settings(),
+    )
+    .check_health()
+    .await;
+    (check.healthy, check.message)
+}
+
+/// Direct Intelligence Layer readiness probe for the health/debug page. It
+/// never errors for an unavailable local server; callers always receive a
+/// boolean and a human-readable reason.
+#[tauri::command]
+pub async fn check_ai_health(
+    state: State<'_, AppState>,
+) -> Result<crate::ai::intelligence_layer_client::AiHealthCheck, String> {
+    let check = crate::ai::intelligence_layer_client::IntelligenceLayerClient::from_settings(
+        &state.settings(),
+    )
+    .check_health()
+    .await;
+    state.ai_health.record(
+        "health",
+        check.healthy,
+        (!check.healthy).then_some(check.message.as_str()),
+    );
+    Ok(check)
 }
 
 #[tauri::command]
@@ -381,10 +388,10 @@ pub async fn get_health(state: State<'_, AppState>) -> Result<HealthReport, Stri
         },
     });
 
-    // 3. AI endpoint reachable.
+    // 3. Intelligence Layer endpoint reachable.
     let (reachable, detail) = ai_reachable(&state).await;
     checks.push(HealthCheck {
-        name: "ai_endpoint".into(),
+        name: "intelligence_layer".into(),
         ok: reachable,
         detail,
     });
@@ -435,17 +442,16 @@ pub async fn get_health(state: State<'_, AppState>) -> Result<HealthReport, Stri
         },
     });
 
-    // 7. Classify / graph configured (informational but counts toward all_ok).
+    // 7. Intelligence Layer configuration (informational but counts toward all_ok).
     let settings = state.settings();
-    let ai_configured = !settings.ai_classify_url.trim().is_empty()
-        && !settings.ai_graph_url.trim().is_empty();
+    let ai_configured = !settings.intelligence_layer_ai_base_url.trim().is_empty();
     checks.push(HealthCheck {
-        name: "ai_configured".into(),
+        name: "intelligence_layer_configured".into(),
         ok: ai_configured,
         detail: if ai_configured {
-            "classify + graph URLs set".into()
+            format!("{}", settings.intelligence_layer_ai_base_url)
         } else {
-            "AI URLs empty — press \"Use mock AI\"".into()
+            "Intelligence Layer base URL is empty".into()
         },
     });
 

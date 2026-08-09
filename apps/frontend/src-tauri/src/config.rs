@@ -65,6 +65,14 @@ fn default_summary_interval_secs() -> u64 {
     300
 }
 
+fn default_intelligence_layer_ai_base_url() -> String {
+    "http://127.0.0.1:8001".to_string()
+}
+
+fn default_intelligence_layer_ai_timeout_secs() -> u32 {
+    10
+}
+
 /// Application-level settings. Persisted as JSON in the app data directory.
 /// The AI API key is stored here for the MVP; a future iteration should move
 /// it into the OS keychain (e.g. tauri-plugin-stronghold).
@@ -120,6 +128,13 @@ pub struct AppSettings {
     /// Whether the desktop window tracker daemon records native-app sessions.
     #[serde(default = "default_desktop_tracking_enabled")]
     pub desktop_tracking_enabled: bool,
+    /// Base URL for the local Intelligence Layer's four-endpoint AI server.
+    #[serde(default = "default_intelligence_layer_ai_base_url")]
+    pub intelligence_layer_ai_base_url: String,
+    /// Per-request timeout for Intelligence Layer calls. Local fallbacks take
+    /// over whenever this deadline is reached.
+    #[serde(default = "default_intelligence_layer_ai_timeout_secs")]
+    pub intelligence_layer_ai_timeout_secs: u32,
 }
 
 impl Default for AppSettings {
@@ -142,6 +157,8 @@ impl Default for AppSettings {
             ai_url_whitelist: default_ai_url_whitelist(),
             summary_interval_secs: default_summary_interval_secs(),
             desktop_tracking_enabled: default_desktop_tracking_enabled(),
+            intelligence_layer_ai_base_url: default_intelligence_layer_ai_base_url(),
+            intelligence_layer_ai_timeout_secs: default_intelligence_layer_ai_timeout_secs(),
         }
     }
 }

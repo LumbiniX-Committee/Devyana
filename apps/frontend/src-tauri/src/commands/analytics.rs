@@ -85,12 +85,36 @@ pub async fn get_dashboard_snapshot(
     let upcoming_reminders = aq::upcoming_notifications(&state.db, 10).await?;
     let focus_mode = aq::focus_mode_status(&state.db).await?;
     let pending_interventions = queries::count_pending(&state.db).await?;
+    let since_ms = chrono::Utc::now().timestamp_millis() - 60 * 60 * 1_000;
+    let score_sessions = queries::sessions_since(&state.db, since_ms).await?;
+    let fragments = score_sessions
+        .iter()
+        .map(|session| crate::ai::intelligence_layer_client::TimeFragment {
+            duration_sec: (session.duration_ms.max(0) as f64) / 1_000.0,
+            verdict: crate::ai::intelligence_layer_client::verdict_from_category(
+                session.ai_category.as_deref(),
+            ),
+        })
+        .collect();
+    let score_outcome = crate::ai::intelligence_layer_client::IntelligenceLayerClient::from_settings(
+        &state.settings(),
+    )
+    .get_mental_discipline_score_with_status(fragments)
+    .await;
+    if score_outcome.used_fallback {
+        state
+            .ai_health
+            .record("focus_metrics", false, Some("local fallback used"));
+    } else {
+        state.ai_health.record("focus_metrics", true, None);
+    }
 
     Ok(DashboardSnapshot {
         date,
         focus_ms_so_far: focus_ms,
         focus_blocks_so_far: focus_blocks,
         distraction_ms_so_far: distraction_ms,
+        mental_discipline_score: score_outcome.value,
         active_constraints,
         usage,
         upcoming_reminders,
@@ -218,6 +242,7 @@ mod tests {
             focus_ms_so_far: 0,
             focus_blocks_so_far: 0,
             distraction_ms_so_far: 0,
+            mental_discipline_score: 0.0,
             pending_interventions: 0,
         };
         assert_eq!(s.focus_ms_so_far + s.distraction_ms_so_far, 0);

@@ -108,13 +108,12 @@ function unmountBlock(): void {
 	}
 }
 
-function mountBlock(message: BlockMessage): void {
-	if (blockMounted && message.command !== "unblock") return;
-
+function mountBlock(message: BlockMessage): boolean {
 	if (message.command === "unblock") {
 		unmountBlock();
-		return;
+		return true;
 	}
+	if (blockMounted || document.querySelector("[data-viyana-block='true']")) return true;
 
 	const host = document.createElement("div");
 	host.dataset.viyanaBlock = "true";
@@ -151,6 +150,8 @@ function mountBlock(message: BlockMessage): void {
 			onUnblock={unmountBlock}
 		/>,
 	);
+
+	return true;
 }
 
 function BlockOverlay({
@@ -291,7 +292,7 @@ function BlockOverlay({
 }
 
 // Listen for messages from background
-chrome.runtime.onMessage.addListener((message: BlockMessage) => {
+chrome.runtime.onMessage.addListener((message: BlockMessage, _sender, sendResponse) => {
 	if (!message || typeof message !== "object" || !("command" in message)) {
 		return;
 	}
@@ -309,7 +310,8 @@ chrome.runtime.onMessage.addListener((message: BlockMessage) => {
 	if (!validCommands.includes(command)) return;
 
 	console.log("[Viyana Block] Received command:", command, message);
-	mountBlock(message as BlockMessage);
+	sendResponse({ vinayaBlockReady: mountBlock(message as BlockMessage) });
+	return false;
 });
 
 const BLOCK_OVERLAY_STYLE = `

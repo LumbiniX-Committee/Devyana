@@ -20,9 +20,10 @@ const DASHBOARD_URL = chrome.runtime.getURL("tabs/setup.html")
 // Only the top frame should host the intervention overlay; iframes would just
 // duplicate it and fight over the viewport.
 if (window.top === window) {
-    chrome.runtime.onMessage.addListener((message: InterventionMessage) => {
+    chrome.runtime.onMessage.addListener((message: InterventionMessage, _sender, sendResponse) => {
         if (message?.type !== "show_intervention") return
-        mountIntervention(message)
+        sendResponse({ vinayaInterventionReady: mountIntervention(message) })
+        return false
     })
 }
 
@@ -108,8 +109,11 @@ function sendCompleted(
 let mounted: { root: Root; host: HTMLDivElement } | null = null
 let unlock: (() => void) | null = null
 
-function mountIntervention(message: InterventionMessage): void {
-    if (mounted) return
+function mountIntervention(message: InterventionMessage): boolean {
+    // Programmatic injection is used as a fallback for tabs that predate an
+    // extension reload. Avoid a second shadow root if an earlier script copy
+    // already mounted the intervention.
+    if (mounted || document.querySelector("[data-viyana-intervention='true']")) return true
 
     const host = document.createElement("div")
     host.dataset.viyanaIntervention = "true"
@@ -141,6 +145,8 @@ function mountIntervention(message: InterventionMessage): void {
             tabId={message.tabId}
         />
     )
+
+    return true
 }
 
 function unmountIntervention(): void {
@@ -212,8 +218,8 @@ function InterventionOverlay({
     }
 
     const handleTask = (task: Task) => {
-        sendCompleted(tabId, true, taskResult?.taskType, taskResult?.response)
         unmountIntervention()
+        sendCompleted(tabId, true, taskResult?.taskType, taskResult?.response)
         if (task.url) {
             window.location.href = task.url
         } else {
@@ -222,8 +228,8 @@ function InterventionOverlay({
     }
 
     const handleChooseLater = () => {
-        sendCompleted(tabId, false, taskResult?.taskType, taskResult?.response)
         unmountIntervention()
+        sendCompleted(tabId, false, taskResult?.taskType, taskResult?.response)
     }
 
     return (
@@ -514,14 +520,248 @@ function CustomTask({ params, onComplete }: TaskComponentProps) {
     )
 }
 
-function UpcomingTask({ onComplete }: TaskComponentProps) {
+// ---------------------------------------------------------------------------
+// Quiz — multiple-choice mindfulness check
+// ---------------------------------------------------------------------------
+
+const DEFAULT_QUIZ = {
+    question: "What best describes your current state of mind?",
+    options: [
+        "Calm and focused",
+        "Restless and distracted",
+        "Tired but pushing through",
+        "Curious and open"
+    ]
+}
+
+function QuizTask({ params, onComplete }: TaskComponentProps) {
+    const quizParams =
+        params?.quiz && typeof params.quiz === "object"
+            ? params.quiz as Record<string, unknown>
+            : {}
+    const question =
+        typeof params?.question === "string" && params.question.trim()
+            ? params.question
+            : typeof quizParams.question === "string" && quizParams.question.trim()
+                ? quizParams.question
+                : DEFAULT_QUIZ.question
+    const rawOptions = Array.isArray(params?.options)
+        ? params.options
+        : Array.isArray(quizParams.options)
+            ? quizParams.options
+            : DEFAULT_QUIZ.options
+    const options = rawOptions.filter(
+        (option): option is string => typeof option === "string" && Boolean(option.trim())
+    )
+    const safeOptions = options.length >= 2 ? options : DEFAULT_QUIZ.options
+    const [selected, setSelected] = useState<string | null>(null)
+
+    const submit = () => {
+        onComplete({ response: selected })
+    }
+
     return (
         <div className="task-panel">
-            <p className="tasks-title">Coming Soon</p>
-            <p className="task-body">This intervention type is not yet implemented.</p>
-            <button type="button" className="task-primary-button" onClick={() => onComplete({})}>
-                Continue
+            <h1 className="tasks-eyebrow">Quick Check</h1>
+            <p className="tasks-title">{question}</p>
+            <div className="quiz-options">
+                {safeOptions.map((option, index) => (
+                    <button
+                        key={`${option}-${index}`}
+                        type="button"
+                        className={`quiz-option ${selected === option ? "selected" : ""}`}
+                        onClick={() => setSelected(option)}
+                    >
+                        {option}
+                    </button>
+                ))}
+            </div>
+            <button
+                type="button"
+                className="task-primary-button"
+                disabled={!selected}
+                onClick={submit}
+            >
+                Submit
             </button>
+        </div>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Story — short guided narrative with a lesson
+// ---------------------------------------------------------------------------
+
+const DEFAULT_STORY_PARAGRAPHS = [
+    "A monk once visited his master carrying a heavy bag of books.",
+    '"I have studied every scripture," he said. "When will I find peace?"',
+    "The master picked up a cup and began pouring tea. It filled to the brim and kept spilling over.",
+    '"Stop!" cried the monk. "The cup is full — nothing more can go in!"',
+    "The master smiled. \"Exactly. Empty your cup, and then you will be ready.\"",
+    "Let go of what weighs you down. The space you create is where peace begins."
+]
+
+function StoryTask({ params, onComplete }: TaskComponentProps) {
+    const customParagraphs = Array.isArray(params?.paragraphs)
+        ? params.paragraphs.filter(
+            (paragraph): paragraph is string => typeof paragraph === "string" && Boolean(paragraph.trim())
+        )
+        : []
+    const paragraphs = customParagraphs.length ? customParagraphs : DEFAULT_STORY_PARAGRAPHS
+    const stepSec = Math.max(
+        1,
+        typeof params?.stepDurationSec === "number" ? params.stepDurationSec : 6
+    )
+    const [index, setIndex] = useState(0)
+    const [remaining, setRemaining] = useState(stepSec)
+    const isLast = index >= paragraphs.length - 1
+    const [showFull, setShowFull] = useState(false)
+
+    const advance = useCallback(() => {
+        if (index >= paragraphs.length - 1) {
+            setShowFull(true)
+        } else {
+            setIndex((i) => i + 1)
+            setRemaining(stepSec)
+        }
+    }, [index, paragraphs.length, stepSec])
+
+    useEffect(() => {
+        if (showFull) return
+        const timer = window.setInterval(() => {
+            setRemaining((prev) => {
+                if (prev <= 1) {
+                    advance()
+                    return stepSec
+                }
+                return prev - 1
+            })
+        }, 1_000)
+        return () => window.clearInterval(timer)
+    }, [advance, stepSec, showFull])
+
+    if (showFull) {
+        return (
+            <div className="task-panel">
+                <h1 className="tasks-eyebrow">Reflection</h1>
+                {paragraphs.map((p, i) => (
+                    <p key={i} className="story-paragraph">{p}</p>
+                ))}
+                <button type="button" className="task-primary-button" onClick={() => onComplete({})}>
+                    I understand
+                </button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="task-panel">
+            <h1 className="tasks-eyebrow">
+                A story{isLast ? " (final)" : ` ${index + 1} of ${paragraphs.length}`}
+            </h1>
+            <p className="story-paragraph" key={index}>
+                {paragraphs[index]}
+            </p>
+            <p className="char-hint">{remaining}s</p>
+            <button type="button" className="task-primary-button" onClick={() => advance()}>
+                {isLast ? "Finish" : "Next"}
+            </button>
+        </div>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Challenge — commit to a mindful action
+// ---------------------------------------------------------------------------
+
+const DEFAULT_CHALLENGES: Array<{ id: string; title: string; description: string }> = [
+    {
+        id: "no-scroll-30m",
+        title: "No mindless scrolling for 30 minutes",
+        description: "Close this tab and commit to 30 minutes of focused work before returning."
+    },
+    {
+        id: "five-deep-breaths",
+        title: "Take five deep breaths",
+        description: "Step away from the screen. Five slow, deep breaths before you continue."
+    },
+    {
+        id: "gratitude-note",
+        title: "Write a gratitude note",
+        description: "Open a blank document and write one thing you are grateful for right now."
+    },
+    {
+        id: "stretch-break",
+        title: "Stand up and stretch",
+        description: "Get out of your chair for 2 minutes. Your body will thank you."
+    }
+]
+
+function ChallengeTask({ params, onComplete }: TaskComponentProps) {
+    const challenges = Array.isArray(params?.challenges)
+        ? params.challenges.flatMap((challenge, index) => {
+            if (!challenge || typeof challenge !== "object") return []
+            const candidate = challenge as Record<string, unknown>
+            if (typeof candidate.title !== "string" || !candidate.title.trim()) return []
+
+            return [{
+                id: typeof candidate.id === "string" && candidate.id ? candidate.id : `challenge-${index}`,
+                title: candidate.title,
+                description:
+                    typeof candidate.description === "string" && candidate.description.trim()
+                        ? candidate.description
+                        : "Choose this challenge and return to what matters."
+            }]
+        })
+        : DEFAULT_CHALLENGES
+    const safeChallenges = challenges.length ? challenges : DEFAULT_CHALLENGES
+    const [selectedId, setSelectedId] = useState<string | null>(null)
+
+    const selected = safeChallenges.find((c) => c.id === selectedId)
+
+    if (selected) {
+        return (
+            <div className="task-panel">
+                <h1 className="tasks-eyebrow">Your Challenge</h1>
+                <p className="tasks-title">{selected.title}</p>
+                <p className="task-body">{selected.description}</p>
+                <div className="challenge-actions">
+                    <button
+                        type="button"
+                        className="task-primary-button"
+                        onClick={() => onComplete({ response: { challenge: selected.id, accepted: true } })}
+                    >
+                        I accept
+                    </button>
+                    <button
+                        type="button"
+                        className="challenge-skip"
+                        onClick={() => onComplete({ response: { challenge: selected.id, accepted: false } })}
+                    >
+                        Maybe later
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="task-panel">
+            <h1 className="tasks-eyebrow">Choose a Challenge</h1>
+            <p className="tasks-title">Pick one small commitment:</p>
+            <div className="challenge-list">
+                {safeChallenges.map((c) => (
+                    <button
+                        key={c.id}
+                        type="button"
+                        className="challenge-card"
+                        onClick={() => setSelectedId(c.id)}
+                    >
+                        <span className="challenge-card-title">{c.title}</span>
+                        <span className="challenge-card-desc">{c.description}</span>
+                    </button>
+                ))}
+            </div>
         </div>
     )
 }
@@ -531,9 +771,9 @@ const TASK_COMPONENTS: Record<InterventionTaskType, ComponentType<TaskComponentP
     inhale_exhale: BreathingTask,
     divine_followups: DivineFollowupsTask,
     custom: CustomTask,
-    quiz: UpcomingTask,
-    story: UpcomingTask,
-    challenge: UpcomingTask
+    quiz: QuizTask,
+    story: StoryTask,
+    challenge: ChallengeTask
 }
 
 // ---------------------------------------------------------------------------
@@ -891,6 +1131,116 @@ const OVERLAY_STYLE = `
 }
 
 .choose-later:hover {
+    color: #cbd5e1;
+}
+
+.quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.quiz-option {
+    width: 100%;
+    padding: 16px 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(148, 163, 184, 0.08);
+    color: #f8fafc;
+    font: inherit;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+    text-align: left;
+}
+
+.quiz-option:hover {
+    background: rgba(59, 130, 246, 0.22);
+    border-color: #60a5fa;
+    transform: translateY(-1px);
+}
+
+.quiz-option.selected {
+    background: rgba(59, 130, 246, 0.35);
+    border-color: #3b82f6;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+}
+
+.story-paragraph {
+    margin: 0 0 20px;
+    font-size: 20px;
+    line-height: 1.7;
+    color: #e2e8f0;
+}
+
+.story-paragraph:last-child {
+    margin-bottom: 0;
+}
+
+.challenge-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.challenge-card {
+    width: 100%;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(148, 163, 184, 0.06);
+    color: #f8fafc;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.challenge-card:hover {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: #818cf8;
+    transform: translateY(-1px);
+}
+
+.challenge-card-title {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.challenge-card-desc {
+    font-size: 14px;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.challenge-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.challenge-skip {
+    border: none;
+    background: none;
+    color: #94a3b8;
+    font: inherit;
+    font-size: 14px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    transition: color 150ms ease;
+}
+
+.challenge-skip:hover {
     color: #cbd5e1;
 }
 `

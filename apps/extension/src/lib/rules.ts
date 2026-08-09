@@ -23,6 +23,7 @@ export const DEFAULT_RULES: Array<Rule> = [
             intervention: {
                 trigger: "immediate",
                 type: "breathing",
+                taskType: "inhale_exhale",
                 durationSec: 30,
                 cooldownMs: 5 * 60_000
             }
@@ -37,7 +38,14 @@ export const DEFAULT_RULES: Array<Rule> = [
         behavior: {
             category: "youtube",
             priority: 200,
-            suppress: ["dopamine_intox", "youtube"]
+            suppress: ["dopamine_intox", "youtube"],
+            intervention: {
+                trigger: "immediate",
+                type: "breathing",
+                taskType: "inhale_exhale",
+                durationSec: 45,
+                cooldownMs: 10 * 60_000
+            }
         }
     },
     {

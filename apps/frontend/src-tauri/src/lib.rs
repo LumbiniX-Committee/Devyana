@@ -137,6 +137,7 @@ pub fn run() {
             commands::debug::trigger_ai_batch,
             commands::debug::get_ai_status,
             commands::debug::get_health,
+            commands::debug::check_ai_health,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

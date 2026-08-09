@@ -23,6 +23,7 @@ pub struct SessionView {
     pub tab_id: i64,
     pub aggregated_from: i64,
     pub ai_category: Option<String>,
+    pub bad_topic: Option<String>,
     pub processed_for_graph: i64,
     pub recorded_at: String,
 }
@@ -57,6 +58,7 @@ impl From<Session> for SessionView {
             tab_id: s.tab_id,
             aggregated_from: s.aggregated_from,
             ai_category: s.ai_category,
+            bad_topic: s.bad_topic,
             processed_for_graph: s.processed_for_graph,
             recorded_at: s.recorded_at,
         }

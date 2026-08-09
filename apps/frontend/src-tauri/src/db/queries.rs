@@ -58,6 +58,22 @@ pub async fn update_session_ai_category(
     Ok(())
 }
 
+pub async fn update_session_ai_result(
+    pool: &SqlitePool,
+    id: &str,
+    category: &str,
+    bad_topic: Option<&str>,
+) -> Result<(), String> {
+    sqlx::query("UPDATE sessions SET ai_category = ?, bad_topic = ? WHERE id = ?")
+        .bind(category)
+        .bind(bad_topic)
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(|e| format!("update Intelligence Layer result: {e}"))?;
+    Ok(())
+}
+
 pub async fn get_session(pool: &SqlitePool, id: &str) -> Result<Option<Session>, String> {
     sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE id = ?")
         .bind(id)
@@ -77,6 +93,17 @@ pub async fn list_sessions(
         .fetch_all(pool)
         .await
         .map_err(|e| format!("list sessions: {e}"))
+}
+
+/// Recent sessions in chronological order for the Mental Discipline Score.
+pub async fn sessions_since(pool: &SqlitePool, since_ms: i64) -> Result<Vec<Session>, String> {
+    sqlx::query_as::<_, Session>(
+        "SELECT * FROM sessions WHERE ended_at >= ? ORDER BY started_at ASC",
+    )
+    .bind(since_ms)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("list recent sessions: {e}"))
 }
 
 /// Sum of `duration_ms` owned by a rule since `since_ms` (inclusive), counting

@@ -234,6 +234,11 @@ export class EnforcementEngine {
         })
     }
 
+    /** Clears a reservation when the content script could not be reached. */
+    cancelIntervention(tabId: number): void {
+        this.activeInterventions.delete(tabId)
+    }
+
     /**
      * The content script confirmed the overlay is live. Guards against a
      * second injection even if we never dispatched one (e.g. desktop-driven).
@@ -254,19 +259,23 @@ export class EnforcementEngine {
      * or "I'll choose later", the cooldown stays active so the site cannot be
      * revisited until it expires.
      */
-    onInterventionCompleted(tabId: number, _completed: boolean): void {
+    onInterventionCompleted(
+        tabId: number,
+        _completed: boolean
+    ): { until: number } | null {
         const active = this.activeInterventions.get(tabId)
-        if (!active) return
+        if (!active) return null
         this.activeInterventions.delete(tabId)
 
         const rule = this.ruleMap.get(active.ruleId)
         const cooldownMs =
             rule?.behavior.intervention?.cooldownMs ?? DEFAULT_COOLDOWN_MS
 
-        this.cooldowns[this.cooldownKey(active.ruleId, active.hostname)] =
-            Date.now() + cooldownMs
+        const until = Date.now() + cooldownMs
+        this.cooldowns[this.cooldownKey(active.ruleId, active.hostname)] = until
 
         void this.persistCooldowns()
+        return { until }
     }
 
     onTabRemoved(tabId: number): void {

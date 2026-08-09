@@ -14,6 +14,7 @@ import {
     loadOfflineAccumulator,
     loadPersistedSession,
     loadRules,
+    loadTasks,
     persistSession,
     saveOfflineAccumulator,
     saveRules,
@@ -35,7 +36,7 @@ import type {
     SystemEvent,
     Task
 } from "@vinaya/behavior-core";
-import { DESKTOP_DRIVEN_RULE_ID, enforcement } from "~background/enforcement";
+import { DESKTOP_DRIVEN_RULE_ID, enforcement, VIYANA_DASHBOARD_URL } from "~background/enforcement";
 
 /**
  * How long we wait before committing a `focus_lost`, and how recently a real
@@ -43,6 +44,30 @@ import { DESKTOP_DRIVEN_RULE_ID, enforcement } from "~background/enforcement";
  * Absorbs rapid Alt+Tab flickers (< 2s) so the event log is not polluted.
  */
 const FOCUS_DEBOUNCE_MS = 2_000
+
+type InterventionDispatchResult =
+    | { ok: true }
+    | { ok: false; error: string }
+
+function isInterventionReady(response: unknown): boolean {
+    return Boolean(
+        response &&
+        typeof response === "object" &&
+        (response as Record<string, unknown>).vinayaInterventionReady === true
+    )
+}
+
+function isBlockReady(response: unknown): boolean {
+    return Boolean(
+        response &&
+        typeof response === "object" &&
+        (response as Record<string, unknown>).vinayaBlockReady === true
+    )
+}
+
+function describeError(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+}
 
 class VinayaTracker {
     private rules: Array<LiveRule> = []
@@ -100,9 +125,9 @@ class VinayaTracker {
 
         // Desktop command callbacks (avoid dynamic imports in service worker)
         desktopBridge.onUpdateRules((rules) => this.updateRules(rules))
-        desktopBridge.onShowIntervention((tabId, options) =>
-            this.forceIntervention(tabId, options)
-        )
+        desktopBridge.onShowIntervention((tabId, options) => {
+            void this.forceIntervention(tabId, options)
+        })
         desktopBridge.onSetFocusMode((mode) =>
             this.setFocusMode(mode)
         )
@@ -113,15 +138,16 @@ class VinayaTracker {
 
     private async init() {
         const stored = await loadRules()
-        if (!stored) await saveRules(DEFAULT_RULES)
-        this.rules = compileRules(stored ?? DEFAULT_RULES)
+        const rawRules = this.ensureRequiredInterventions(stored ?? DEFAULT_RULES)
+        if (!stored || rawRules !== stored) await saveRules(rawRules)
+        this.rules = compileRules(rawRules)
 
         await enforcement.init()
         enforcement.setRules(this.rules)
 
         const all = (await chrome.storage.local.get()) as Record<string, unknown>
         const namedRuleIds = new Set(
-            (stored ?? DEFAULT_RULES)
+            rawRules
                 .filter((rule) => rule.behavior?.emit !== "fallback")
                 .map((rule) => rule.id)
         )
@@ -275,7 +301,16 @@ class VinayaTracker {
 
             if (tabId) {
                 const completed = payload.completed === true
-                enforcement.onInterventionCompleted(tabId, completed)
+                const cooldown = enforcement.onInterventionCompleted(tabId, completed)
+
+                // Choosing a task navigates away from the distracting page. If
+                // the user chooses later, replace the finished exercise with a
+                // real block immediately instead of leaving the page usable.
+                if (!completed && cooldown) {
+                    void this.deliverCooldownBlock(tabId, cooldown.until).catch((error) => {
+                        console.warn("Unable to display post-intervention block:", error)
+                    })
+                }
 
                 const systemEvent: SystemEvent = {
                     event: "system_event",
@@ -437,37 +472,30 @@ class VinayaTracker {
 
             if (decision.action === "cooldown_block") {
                 this.endSession(switchAt)
-                void chrome.tabs
-                    .sendMessage(tabId, {
-                        command: "hard_block",
-                        tabId,
-                        reason: "You are in a cooldown period after a mindfulness pause.",
-                        until: decision.until,
-                    })
-                    .catch(() => { })
+                void this.deliverCooldownBlock(tabId, decision.until).catch((error) => {
+                    console.warn("Unable to display cooldown block:", error)
+                })
                 return
             }
 
             if (decision.action === "intervention") {
                 this.endSession(switchAt)
 
-                enforcement.beginIntervention(
+                const result = await this.dispatchIntervention(
                     tabId,
                     decision.ruleId,
                     decision.hostname,
-                    decision.durationSec
+                    {
+                        type: "show_intervention",
+                        tabId,
+                        taskType: decision.taskType,
+                        params: decision.params,
+                        durationSec: decision.durationSec,
+                        tasks: decision.tasks
+                    }
                 )
 
-                const message: InterventionMessage = {
-                    type: "show_intervention",
-                    tabId,
-                    taskType: decision.taskType,
-                    params: decision.params,
-                    durationSec: decision.durationSec,
-                    tasks: decision.tasks
-                }
-
-                void chrome.tabs.sendMessage(tabId, message).catch(() => { })
+                if (!result.ok) console.warn("Unable to display intervention:", result.error)
                 return
             }
 
@@ -889,11 +917,11 @@ class VinayaTracker {
     }
 
     /**
-     * Desktop-driven intervention (e.g. AI noticed a drift). We record the
-     * active intervention so evaluateAccess never stacks a second overlay, then
-     * dispatch the overlay to the tab.
+     * Dispatches an intervention chosen by the desktop (for example, by the AI
+     * after detecting drift). The task is only marked active after the target
+     * tab acknowledges that it has an overlay listener.
      */
-    forceIntervention(
+    async forceIntervention(
         tabId: number,
         options: {
             taskType: InterventionTaskType
@@ -901,28 +929,169 @@ class VinayaTracker {
             durationSec: number
             tasks: Array<Task>
         }
-    ): void {
-        if (!tabId) return
+    ): Promise<InterventionDispatchResult> {
+        if (!tabId) return { ok: false, error: "Missing target tab" }
 
         const { taskType, params, durationSec, tasks } = options
+        const resolvedTasks = await this.resolveInterventionTasks(tasks)
 
-        enforcement.beginIntervention(
+        return this.dispatchIntervention(
             tabId,
             DESKTOP_DRIVEN_RULE_ID,
             "",
-            durationSec
+            {
+                type: "show_intervention",
+                tabId,
+                taskType,
+                params,
+                durationSec,
+                tasks: resolvedTasks
+            }
         )
+    }
 
-        const message: InterventionMessage = {
-            type: "show_intervention",
-            tabId,
-            taskType,
-            params,
-            durationSec,
-            tasks
+    /**
+     * Existing installs retain rules in local storage. Backfill the Shorts
+     * intervention without replacing any user-authored rules or settings.
+     */
+    private ensureRequiredInterventions(rules: Array<Rule>): Array<Rule> {
+        const shorts = rules.find((rule) => rule.id === "youtube_shorts")
+        if (!shorts || shorts.behavior?.intervention) return rules
+
+        return rules.map((rule) => {
+            if (rule.id !== "youtube_shorts") return rule
+
+            return {
+                ...rule,
+                behavior: {
+                    ...rule.behavior,
+                    intervention: {
+                        trigger: "immediate",
+                        type: "breathing",
+                        taskType: "inhale_exhale",
+                        durationSec: 45,
+                        cooldownMs: 10 * 60_000
+                    }
+                }
+            }
+        })
+    }
+
+    private async resolveInterventionTasks(tasks: Array<Task>): Promise<Array<Task>> {
+        if (tasks.length) return tasks
+
+        const storedTasks = await loadTasks()
+        if (storedTasks.length) return storedTasks
+
+        return [
+            {
+                id: "viyana-dashboard",
+                title: "Open your task dashboard",
+                url: VIYANA_DASHBOARD_URL
+            }
+        ]
+    }
+
+    private async dispatchIntervention(
+        tabId: number,
+        ruleId: string,
+        hostname: string,
+        message: InterventionMessage
+    ): Promise<InterventionDispatchResult> {
+        if (enforcement.getActiveIntervention(tabId)) {
+            return { ok: false, error: "An intervention is already active in this tab" }
         }
 
-        void chrome.tabs.sendMessage(tabId, message).catch(() => { })
+        enforcement.beginIntervention(tabId, ruleId, hostname, message.durationSec ?? 30)
+
+        try {
+            await this.deliverIntervention(tabId, message)
+        } catch (error) {
+            enforcement.cancelIntervention(tabId)
+
+            const detail = describeError(error)
+            console.warn(`Unable to deliver intervention to tab ${tabId}:`, detail)
+            void desktopBridge.send({
+                event: "system_event",
+                name: "intervention_dispatch_failed",
+                message: detail,
+                data: { tabId, ruleId, taskType: message.taskType }
+            })
+
+            return { ok: false, error: detail }
+        }
+
+        void desktopBridge.send({
+            event: "system_event",
+            name: "intervention_dispatched",
+            data: { tabId, ruleId, taskType: message.taskType }
+        })
+
+        return { ok: true }
+    }
+
+    private async deliverIntervention(tabId: number, message: InterventionMessage): Promise<void> {
+        const send = async () => {
+            const response = await chrome.tabs.sendMessage(tabId, message)
+            if (!isInterventionReady(response)) {
+                throw new Error("The intervention content script did not acknowledge the command")
+            }
+        }
+
+        try {
+            await send()
+            return
+        } catch (_firstError) {
+            const contentScripts = chrome.runtime.getManifest().content_scripts ?? []
+            const interventionScript = contentScripts
+                .flatMap((contentScript) => contentScript.js ?? [])
+                .find((file) => /(?:^|\/)intervention(?:[.-]|$)/.test(file))
+
+            if (!interventionScript) {
+                throw new Error("The installed extension build does not include the intervention script")
+            }
+
+            await chrome.scripting.executeScript({
+                target: { tabId, allFrames: false },
+                files: [interventionScript]
+            })
+            await send()
+        }
+    }
+
+    private async deliverCooldownBlock(tabId: number, until: number): Promise<void> {
+        const message = {
+            command: "hard_block" as const,
+            tabId,
+            reason: "Your mindfulness pause is complete. Return when the cooldown ends.",
+            until
+        }
+        const send = async () => {
+            const response = await chrome.tabs.sendMessage(tabId, message)
+            if (!isBlockReady(response)) {
+                throw new Error("The block-handler content script did not acknowledge the command")
+            }
+        }
+
+        try {
+            await send()
+            return
+        } catch (_firstError) {
+            const contentScripts = chrome.runtime.getManifest().content_scripts ?? []
+            const blockHandlerScript = contentScripts
+                .flatMap((contentScript) => contentScript.js ?? [])
+                .find((file) => /(?:^|\/)block-handler(?:[.-]|$)/.test(file))
+
+            if (!blockHandlerScript) {
+                throw new Error("The installed extension build does not include the block handler")
+            }
+
+            await chrome.scripting.executeScript({
+                target: { tabId, allFrames: false },
+                files: [blockHandlerScript]
+            })
+            await send()
+        }
     }
 
     setFocusMode(mode: { active: boolean; workRuleIds?: Array<string> }): void {

@@ -31,6 +31,14 @@ pub struct ConstraintDefinition {
     pub message: Option<String>,
     #[serde(default)]
     pub grace_period_ms: Option<i64>,
+    /// Settings for the `show_intervention` action. They are deliberately
+    /// optional so existing saved constraints remain valid.
+    #[serde(default)]
+    pub intervention_task_type: Option<InterventionTaskType>,
+    #[serde(default)]
+    pub intervention_params: Option<serde_json::Map<String, serde_json::Value>>,
+    #[serde(default)]
+    pub intervention_duration_sec: Option<i64>,
 }
 
 fn default_scope() -> String {
@@ -45,6 +53,18 @@ impl ConstraintDefinition {
     pub fn parse(raw: &str) -> Result<Self, String> {
         serde_json::from_str(raw).map_err(|e| format!("invalid constraint definition: {e}"))
     }
+}
+
+/// Must stay in lockstep with the extension's `InterventionTaskType` union.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InterventionTaskType {
+    Realization,
+    InhaleExhale,
+    DivineFollowups,
+    Quiz,
+    Story,
+    Challenge,
 }
 
 /// `DesktopCommand` union, serialized exactly as the extension expects.
@@ -73,6 +93,13 @@ pub enum DesktopCommand {
     UpdateTasks {
         tasks: Vec<crate::models::tasks::ExtensionTask>,
     },
+    #[serde(rename_all = "camelCase")]
+    ShowIntervention {
+        tab_id: i64,
+        task_type: InterventionTaskType,
+        params: Option<serde_json::Map<String, serde_json::Value>>,
+        duration_sec: i64,
+    },
 }
 
 impl DesktopCommand {
@@ -86,6 +113,7 @@ impl DesktopCommand {
             DesktopCommand::ShowWarning { .. } => "show_warning",
             DesktopCommand::UpdateRules { .. } => "update_rules",
             DesktopCommand::UpdateTasks { .. } => "update_tasks",
+            DesktopCommand::ShowIntervention { .. } => "show_intervention",
         }
     }
 
@@ -95,6 +123,9 @@ impl DesktopCommand {
         tab_id: i64,
         message: Option<String>,
         grace_period_ms: Option<i64>,
+        intervention_task_type: Option<InterventionTaskType>,
+        intervention_params: Option<serde_json::Map<String, serde_json::Value>>,
+        intervention_duration_sec: Option<i64>,
     ) -> DesktopCommand {
         match action {
             "hard_block" => DesktopCommand::HardBlock { tab_id },
@@ -105,6 +136,12 @@ impl DesktopCommand {
                 grace_period_ms: grace_period_ms.unwrap_or(0),
             },
             "unblock" => DesktopCommand::Unblock { tab_id },
+            "show_intervention" => DesktopCommand::ShowIntervention {
+                tab_id,
+                task_type: intervention_task_type.unwrap_or(InterventionTaskType::InhaleExhale),
+                params: intervention_params,
+                duration_sec: intervention_duration_sec.unwrap_or(30).max(1),
+            },
             _ => DesktopCommand::SoftBlock { tab_id },
         }
     }
@@ -143,5 +180,24 @@ mod tests {
             json,
             r#"{"command":"update_tasks","tasks":[{"id":"t1","title":"Read","url":"https://example.com"}]}"#
         );
+    }
+
+    #[test]
+    fn serializes_show_intervention_command() {
+        let cmd = DesktopCommand::ShowIntervention {
+            tab_id: 12,
+            task_type: InterventionTaskType::Quiz,
+            params: Some(serde_json::Map::from_iter([(
+                "question".into(),
+                serde_json::json!("What matters most right now?"),
+            )])),
+            duration_sec: 45,
+        };
+        let json = serde_json::to_value(cmd).expect("serializes");
+        assert_eq!(json["command"], "show_intervention");
+        assert_eq!(json["tabId"], 12);
+        assert_eq!(json["taskType"], "quiz");
+        assert_eq!(json["params"]["question"], "What matters most right now?");
+        assert_eq!(json["durationSec"], 45);
     }
 }

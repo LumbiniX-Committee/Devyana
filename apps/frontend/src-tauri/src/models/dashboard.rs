@@ -47,6 +47,7 @@ pub fn negative_work_description(category: &str) -> String {
         "entertainment" => "Entertainment".to_string(),
         "shopping" => "Online Shopping".to_string(),
         "browsing" => "Mindless Browsing".to_string(),
+        "distracting" => "Distracting Activity".to_string(),
         other => other.replace('_', " "),
     }
 }

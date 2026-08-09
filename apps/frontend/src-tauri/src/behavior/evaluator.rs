@@ -219,6 +219,7 @@ fn severity(command: &DesktopCommand) -> u8 {
         DesktopCommand::Unblock { .. } => 1,
         DesktopCommand::UpdateRules { .. } => 0,
         DesktopCommand::UpdateTasks { .. } => 0,
+        DesktopCommand::ShowIntervention { .. } => 4,
     }
 }
 
@@ -265,6 +266,9 @@ pub async fn evaluate(
                 session.tab_id,
                 def.message.clone(),
                 def.grace_period_ms,
+                def.intervention_task_type.clone(),
+                def.intervention_params.clone(),
+                def.intervention_duration_sec,
             );
             if best
                 .as_ref()

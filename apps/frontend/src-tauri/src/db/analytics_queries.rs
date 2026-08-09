@@ -13,6 +13,7 @@ use crate::models::tasks::DayProductivity;
 
 /// Categories treated as productive for analytics/insights.
 pub const PRODUCTIVE_CATEGORIES: &[&str] = &[
+    "productive",
     "deep_work",
     "learning",
     "research",
@@ -25,6 +26,7 @@ pub const PRODUCTIVE_CATEGORIES: &[&str] = &[
 
 /// Categories treated as distracting.
 pub const DISTRACTING_CATEGORIES: &[&str] = &[
+    "distracting",
     "dopamine_shorts",
     "social_media",
     "gaming",
@@ -39,6 +41,7 @@ pub const DISTRACTING_CATEGORIES: &[&str] = &[
 /// dashboard. The list is intentionally a strict subset of the distracting
 /// categories — it powers the reflection cards, not the analytics totals.
 pub const NEGATIVE_CATEGORIES: &[&str] = &[
+    "distracting",
     "dopamine_shorts",
     "social_media",
     "gambling",
@@ -551,9 +554,10 @@ pub async fn user_behavior_trend(
         .collect())
 }
 
-/// Durations grouped by negative `ai_category` over `[start_date, end_date]`
-/// (inclusive), ordered by total descending. Every row carries a human-readable
-/// description from the category lookup table.
+/// Durations grouped by Intelligence Layer bad topic (falling back to the
+/// category) over `[start_date, end_date]` (inclusive), ordered by total
+/// descending. This keeps correction cards specific even though AI verdicts
+/// intentionally use the broad productive/neutral/distracting categories.
 pub async fn negative_works(
     pool: &SqlitePool,
     start_date: &str,
@@ -563,10 +567,11 @@ pub async fn negative_works(
     let ph = in_list(NEGATIVE_CATEGORIES.len());
 
     let sql = format!(
-        "SELECT ai_category AS category, SUM(duration_ms) AS total, COUNT(*) AS cnt
-         FROM sessions
-         WHERE started_at >= ? AND started_at < ? AND ai_category IN {ph}
-         GROUP BY ai_category ORDER BY total DESC"
+        "SELECT COALESCE(NULLIF(bad_topic, ''), ai_category) AS category,
+                SUM(duration_ms) AS total, COUNT(*) AS cnt
+          FROM sessions
+          WHERE started_at >= ? AND started_at < ? AND ai_category IN {ph}
+          GROUP BY COALESCE(NULLIF(bad_topic, ''), ai_category) ORDER BY total DESC"
     );
     let mut query = sqlx::query(&sql);
     query = query.bind(start).bind(end);
@@ -590,6 +595,35 @@ pub async fn negative_works(
                 description: negative_work_description(&category),
             }
         })
+        .collect())
+}
+
+/// Distinct bad-topic labels behind one Negative Works card. The dashboard
+/// passes these through to the monk-suggestions endpoint as its context.
+pub async fn bad_activities_for_category(
+    pool: &SqlitePool,
+    category: &str,
+) -> Result<Vec<String>, String> {
+    let ph = in_list(NEGATIVE_CATEGORIES.len());
+    let sql = format!(
+        "SELECT DISTINCT COALESCE(NULLIF(bad_topic, ''), ai_category) AS activity
+         FROM sessions
+         WHERE ai_category IN {ph}
+           AND COALESCE(NULLIF(bad_topic, ''), ai_category) = ?
+         ORDER BY activity ASC"
+    );
+    let mut query = sqlx::query(&sql);
+    for negative_category in NEGATIVE_CATEGORIES {
+        query = query.bind(negative_category);
+    }
+    let rows = query
+        .bind(category)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("negative work activities: {e}"))?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|row| row.try_get::<String, _>("activity").ok())
         .collect())
 }
 
