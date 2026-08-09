@@ -114,7 +114,7 @@ function IndexPopup() {
     const fetchStatus = useCallback(async () => {
         try {
             const data = await Promise.race([
-                sendToBackground<undefined, ConnectionStatus>({ name: "get_connection_status" }),
+                sendToBackground<undefined, ConnectionStatus>({ name: "get-connection-status" }),
                 new Promise<ConnectionStatus>((_, reject) =>
                     setTimeout(() => reject(new Error("Timeout")), 3000)
                 )
@@ -173,7 +173,7 @@ function IndexPopup() {
     const fetchRules = useCallback(async () => {
         try {
             const data = await Promise.race([
-                sendToBackground<undefined, { rules: LiveRule[] }>({ name: "get_rules" }),
+                sendToBackground<undefined, { rules: LiveRule[] }>({ name: "get-rules" }),
                 new Promise<{ rules: LiveRule[] }>((_, reject) =>
                     setTimeout(() => reject(new Error("Timeout")), 3000)
                 )
@@ -188,7 +188,7 @@ function IndexPopup() {
     const retryConnection = useCallback(async () => {
         setRetrying(true);
         try {
-            await sendToBackground<undefined, { ok: boolean; error?: string }>({ name: "retry_connection" });
+            await sendToBackground<undefined, { ok: boolean; error?: string }>({ name: "retry-connection" });
             await new Promise(r => setTimeout(r, 1000));
             await fetchStatus();
         } catch (err) {
@@ -216,7 +216,7 @@ function IndexPopup() {
             }
 
             const result = await sendToBackground<{ tabId: number; taskType: InterventionTaskType; params?: Record<string, unknown>; durationSec?: number }, { ok: boolean; error?: string }>({
-                name: "trigger_intervention",
+                name: "trigger-intervention",
                 body: {
                     tabId: currentTab.id,
                     taskType: selectedType,
@@ -240,7 +240,7 @@ function IndexPopup() {
 
     const clearLog = useCallback(async () => {
         try {
-            await sendToBackground<undefined, { ok: boolean; error?: string }>({ name: "prune_log" });
+            await sendToBackground<undefined, { ok: boolean; error?: string }>({ name: "prune-log" });
             await fetchStatus();
             showToast("Event log cleared", "success");
         } catch (err) {

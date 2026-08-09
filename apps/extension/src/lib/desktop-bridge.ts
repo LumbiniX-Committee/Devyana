@@ -512,11 +512,22 @@ class DesktopBridgeClient {
 	}
 
 	ensureConnect() {
-		if (!this.connected && !this.reconnectTimer) this.connect();
+		if (this.connected) return;
+		if (this.reconnectTimer) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = null;
+		}
+		this.reconnectAttempts = 0;
+		this.passiveMode = false;
+		this.connect();
 	}
 
 	retry(): void {
 		this.ensureConnect();
+	}
+
+	isConnected(): boolean {
+		return this.connected;
 	}
 
 	getClientId(): string | null {

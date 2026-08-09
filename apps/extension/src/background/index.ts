@@ -200,17 +200,55 @@ class VinayaTracker {
      * `intervention_active` confirms the overlay is live so a duplicate can never
      * be injected; `intervention_completed` (task chosen / "choose later") feeds
      * the cooldown bookkeeping and surfaces a `system_event` to the desktop.
+     *
+     * Also handles popup queries (`get_connection_status`, `retry_connection`)
+     * as a direct fallback alongside Plasmo's auto-routed message handlers.
      */
     private handleExtensionMessage = (
-        message: InterventionActiveMessage | InterventionCompletedMessage | unknown,
+        message: InterventionActiveMessage | InterventionCompletedMessage | Record<string, unknown>,
         sender: chrome.runtime.MessageSender,
-        _sendResponse: (response?: unknown) => void
+        sendResponse: (response?: unknown) => void
     ): boolean => {
-        if (!message || typeof message !== "object" || !("type" in (message as object))) {
+        if (!message || typeof message !== "object") {
             return false
         }
 
-        const type = (message as { type?: string }).type
+        const type = "type" in message ? (message as { type?: string }).type : undefined
+
+        if (type === "get_connection_status") {
+            desktopBridge.getStatus()
+                .then(status => {
+                    sendResponse({
+                        connected: status.connected,
+                        port: status.cachedWsPort,
+                        passiveMode: status.passiveMode,
+                        unsyncedCount: status.unsyncedCount,
+                        clientId: status.clientId,
+                        browserType: status.browserType
+                    })
+                })
+                .catch(() => {
+                    sendResponse({
+                        connected: false,
+                        port: null,
+                        passiveMode: false,
+                        unsyncedCount: 0,
+                        clientId: null,
+                        browserType: "unknown"
+                    })
+                })
+            return true // async
+        }
+
+        if (type === "retry_connection") {
+            try {
+                desktopBridge.ensureConnect()
+                sendResponse({ ok: true })
+            } catch (error) {
+                sendResponse({ ok: false, error: String(error) })
+            }
+            return false
+        }
 
         if (type === "intervention_active") {
             const tabId = (message as InterventionActiveMessage).tabId ?? sender.tab?.id
