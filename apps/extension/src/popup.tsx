@@ -77,7 +77,29 @@ const INTERVENTION_TYPES: InterventionType[] = [
         label: "Quiz",
         description: "Interactive mindfulness check-in",
         implemented: true,
-        params: []
+        params: [],
+        defaultParams: {
+            quiz: {
+                title: "Mindful Check-In",
+                questions: [
+                    {
+                        prompt: "What distracted your mind the most today?",
+                        options: ["The endless scroll (social media)", "The illusion of urgency (overworking)", "Dwelling on the past (regret)"],
+                        customPlaceholder: "Another path..."
+                    },
+                    {
+                        prompt: "What are you quietly grateful for in this moment?",
+                        options: ["The breath that carries me", "The presence of loved ones", "The stillness between thoughts"],
+                        customPlaceholder: "A silent gratitude..."
+                    },
+                    {
+                        prompt: "What intention will you carry into tomorrow?",
+                        options: ["To listen more than I speak", "To act with compassion", "To release what no longer serves me"],
+                        customPlaceholder: "My own intention..."
+                    }
+                ]
+            }
+        }
     },
     {
         id: "story",

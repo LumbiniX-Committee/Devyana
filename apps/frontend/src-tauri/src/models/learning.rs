@@ -38,12 +38,77 @@ pub struct LearningContent {
     pub video_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub video_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quiz: Option<MindfulQuiz>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MindfulQuiz {
+    pub title: String,
+    pub generated_by_ai: bool,
+    pub questions: Vec<MindfulQuizQuestion>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MindfulQuizQuestion {
+    pub prompt: String,
+    pub options: Vec<String>,
+    pub custom_placeholder: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LessonPosition {
     pub x: i32,
     pub y: i32,
+}
+
+fn mindful_quiz(personalized_practices: &[String], generated_by_ai: bool) -> MindfulQuiz {
+    let mut questions = vec![
+        MindfulQuizQuestion {
+            prompt: "What distracted your mind the most today?".to_string(),
+            options: vec![
+                "The endless scroll (Social Media)".to_string(),
+                "The illusion of urgency (Overworking)".to_string(),
+                "Dwelling on the past (Regret)".to_string(),
+            ],
+            custom_placeholder: "Another path...".to_string(),
+        },
+        MindfulQuizQuestion {
+            prompt: "What are you quietly grateful for in this moment?".to_string(),
+            options: vec![
+                "The breath that carries me".to_string(),
+                "The presence of loved ones".to_string(),
+                "The stillness between thoughts".to_string(),
+            ],
+            custom_placeholder: "A silent gratitude...".to_string(),
+        },
+        MindfulQuizQuestion {
+            prompt: "What intention will you carry into tomorrow?".to_string(),
+            options: vec![
+                "To listen more than I speak".to_string(),
+                "To act with compassion".to_string(),
+                "To release what no longer serves me".to_string(),
+            ],
+            custom_placeholder: "My own intention...".to_string(),
+        },
+    ];
+
+    if generated_by_ai && personalized_practices.len() >= 3 {
+        questions[0] = MindfulQuizQuestion {
+            prompt: "Which small practice would help you meet this moment with steadiness?"
+                .to_string(),
+            options: personalized_practices.iter().take(3).cloned().collect(),
+            custom_placeholder: "My own practice...".to_string(),
+        };
+    }
+
+    MindfulQuiz {
+        title: "Mindful Check-In".to_string(),
+        generated_by_ai: generated_by_ai && personalized_practices.len() >= 3,
+        questions,
+    }
 }
 
 impl LearningPathway {
@@ -84,6 +149,19 @@ impl LearningPathway {
                 status: "available".to_string(),
                 position: LessonPosition { x, y },
             };
+        let quiz = |x: i32, y: i32| LearningLesson {
+            id: "mindful-reflection".to_string(),
+            title: "Mindful Reflection".to_string(),
+            description: "A three-step check-in for attention, gratitude, and intention."
+                .to_string(),
+            lesson_type: "quiz".to_string(),
+            content: LearningContent {
+                quiz: Some(mindful_quiz(personalized_practices, generated_by_ai)),
+                ..LearningContent::default()
+            },
+            status: "available".to_string(),
+            position: LessonPosition { x, y },
+        };
 
         Self {
             id: "eightfold-path".to_string(),
@@ -148,6 +226,7 @@ impl LearningPathway {
                     29,
                     77,
                 ),
+                quiz(39, 84),
                 text(
                     "right-mindfulness",
                     "Right Mindfulness",
@@ -190,5 +269,13 @@ mod tests {
                 .as_deref()
                 .is_some_and(|url| url.contains("yPA5YGiJONU"))
         }));
+        let quiz = pathway
+            .nodes
+            .iter()
+            .find(|node| node.lesson_type == "quiz")
+            .and_then(|node| node.content.quiz.as_ref())
+            .expect("default mindful quiz");
+        assert_eq!(quiz.questions.len(), 3);
+        assert!(!quiz.generated_by_ai);
     }
 }

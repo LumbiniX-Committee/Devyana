@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Flower2, PlayCircle, Square, Volume2, X, Captions, AlertCircle } from "lucide-react";
 import { ZenYouTubePlayer } from "./ZenYouTubePlayer";
+import { MindfulQuiz } from "./MindfulQuiz";
 import type { LessonNode } from "./types";
 
 function parseTimestamp(timestamp: string) {
@@ -206,6 +207,11 @@ function LocalVideoLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["l
   );
 }
 
+function QuizLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["lesson"]> }) {
+  if (!lesson.content.quiz) return null;
+  return <MindfulQuiz key={lesson.id} quiz={lesson.content.quiz} />;
+}
+
 export function LessonViewer({ lesson, onClose, onComplete }: LessonViewerProps) {
   const FONT = '"Georgia", "Times New Roman", serif';
 
@@ -227,7 +233,7 @@ export function LessonViewer({ lesson, onClose, onComplete }: LessonViewerProps)
       <div className="mb-4 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#85705B", fontFamily: FONT }}>
           {lesson.type === "video" ? <PlayCircle size={15} /> : <BookOpen size={15} />}
-          {lesson.type === "video" ? "Video lesson" : "Text lesson"}
+          {lesson.type === "video" ? "Video lesson" : lesson.type === "quiz" ? "Mindful quiz" : "Text lesson"}
         </span>
         <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full transition-colors hover:bg-black/5" aria-label="Close lesson viewer">
           <X size={16} />
@@ -237,7 +243,7 @@ export function LessonViewer({ lesson, onClose, onComplete }: LessonViewerProps)
         <h2 className="buddha-heading text-lg mb-1" style={{ color: "#5C4B3A" }}>{lesson.title}</h2>
         <p className="text-xs" style={{ color: "#85705B", fontFamily: FONT }}>{lesson.description}</p>
       </header>
-      {lesson.type === "text" ? <TextLesson lesson={lesson} /> : <VideoLesson lesson={lesson} />}
+      {lesson.type === "text" ? <TextLesson lesson={lesson} /> : lesson.type === "video" ? <VideoLesson lesson={lesson} /> : <QuizLesson lesson={lesson} />}
       <div className="mt-6 flex items-center justify-between rounded-xl border p-4" style={{ borderColor: "rgba(139, 154, 110, 0.2)", backgroundColor: "rgba(139, 154, 110, 0.05)" }}>
         <div className="min-w-0">
           <strong className="block text-sm" style={{ color: "#5C4B3A", fontFamily: FONT }}>{isCompleted ? "Completed lesson" : "Ready to continue?"}</strong>

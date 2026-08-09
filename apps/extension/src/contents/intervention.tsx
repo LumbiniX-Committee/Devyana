@@ -9,6 +9,7 @@ import type {
     Task
 } from "@vinaya/behavior-core"
 import buddhaPalmVideo from "url:~/assets/buddha-palm.mp4"
+import inhaleExhaleVideo from "url:~/assets/inhale-exhale.mp4"
 import { ZenYouTubePlayer } from "./ZenYouTubePlayer"
 
 export const config: PlasmoCSConfig = {
@@ -431,7 +432,17 @@ function BreathingTask({ params, durationSec, onComplete }: TaskComponentProps) 
     return (
         <>
             <div className="breathe-wrap">
-                <div className="breathe-circle" />
+                <div className="breathe-circle">
+                    <video
+                        className="breathe-video"
+                        src={inhaleExhaleVideo}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        aria-hidden="true"
+                    />
+                </div>
                 <svg
                     className="breathe-ring"
                     viewBox="0 0 120 120"
@@ -450,9 +461,6 @@ function BreathingTask({ params, durationSec, onComplete }: TaskComponentProps) 
                         transform="rotate(-90 60 60)"
                     />
                 </svg>
-                <div className="count" aria-live="assertive">
-                    {remaining}
-                </div>
             </div>
             <p className="breath-hint" key={String(breathIn)}>
                 {breathIn ? "Breathe in…" : "Breathe out…"}
@@ -546,14 +554,68 @@ function CustomTask({ params, onComplete }: TaskComponentProps) {
 // Quiz — multiple-choice mindfulness check
 // ---------------------------------------------------------------------------
 
-const DEFAULT_QUIZ = {
-    question: "What best describes your current state of mind?",
-    options: [
-        "Calm and focused",
-        "Restless and distracted",
-        "Tired but pushing through",
-        "Curious and open"
-    ]
+type QuizQuestion = {
+    prompt: string
+    options: string[]
+    customPlaceholder?: string
+}
+
+const DEFAULT_QUIZ_TITLE = "Mindful Check-In"
+
+const DEFAULT_QUIZ_QUESTIONS: QuizQuestion[] = [
+    {
+        prompt: "What distracted your mind the most today?",
+        options: [
+            "The endless scroll (social media)",
+            "The illusion of urgency (overworking)",
+            "Dwelling on the past (regret)"
+        ],
+        customPlaceholder: "Another path..."
+    },
+    {
+        prompt: "What are you quietly grateful for in this moment?",
+        options: [
+            "The breath that carries me",
+            "The presence of loved ones",
+            "The stillness between thoughts"
+        ],
+        customPlaceholder: "A silent gratitude..."
+    },
+    {
+        prompt: "What intention will you carry into tomorrow?",
+        options: [
+            "To listen more than I speak",
+            "To act with compassion",
+            "To release what no longer serves me"
+        ],
+        customPlaceholder: "My own intention..."
+    }
+]
+
+function parseQuizQuestions(value: unknown): QuizQuestion[] | null {
+    if (!Array.isArray(value)) return null
+    const parsed: QuizQuestion[] = []
+    for (const item of value) {
+        if (!item || typeof item !== "object") return null
+        const record = item as Record<string, unknown>
+        const prompt = typeof record.prompt === "string" && record.prompt.trim()
+            ? record.prompt.trim()
+            : ""
+        const rawOptions = Array.isArray(record.options) ? record.options : []
+        const options = rawOptions.filter(
+            (option): option is string => typeof option === "string" && Boolean(option.trim())
+        )
+        if (!prompt || options.length < 2) return null
+        parsed.push({
+            prompt,
+            options,
+            customPlaceholder:
+                typeof record.customPlaceholder === "string" && record.customPlaceholder.trim()
+                    ? record.customPlaceholder
+                    : "My own response..."
+        })
+    }
+    return parsed.length ? parsed : null
 }
 
 function QuizTask({ params, onComplete }: TaskComponentProps) {
@@ -561,21 +623,68 @@ function QuizTask({ params, onComplete }: TaskComponentProps) {
         params?.quiz && typeof params.quiz === "object"
             ? params.quiz as Record<string, unknown>
             : {}
+    const questions = parseQuizQuestions(quizParams.questions)
+
+    if (questions) {
+        const title = typeof quizParams.title === "string" && quizParams.title.trim()
+            ? quizParams.title
+            : DEFAULT_QUIZ_TITLE
+        return (
+            <MultiQuestionQuiz
+                title={title}
+                questions={questions}
+                onComplete={onComplete}
+            />
+        )
+    }
+
     const question =
         typeof params?.question === "string" && params.question.trim()
             ? params.question
             : typeof quizParams.question === "string" && quizParams.question.trim()
                 ? quizParams.question
-                : DEFAULT_QUIZ.question
-    const rawOptions = Array.isArray(params?.options)
-        ? params.options
-        : Array.isArray(quizParams.options)
-            ? quizParams.options
-            : DEFAULT_QUIZ.options
-    const options = rawOptions.filter(
+                : null
+
+    if (question) {
+        return (
+            <SingleQuestionQuiz
+                question={question}
+                fallbackOptions={DEFAULT_QUIZ_QUESTIONS[0].options}
+                options={Array.isArray(params?.options)
+                    ? params.options
+                    : Array.isArray(quizParams.options)
+                        ? quizParams.options
+                        : undefined}
+                onComplete={onComplete}
+            />
+        )
+    }
+
+    return (
+        <MultiQuestionQuiz
+            title={DEFAULT_QUIZ_TITLE}
+            questions={DEFAULT_QUIZ_QUESTIONS}
+            onComplete={onComplete}
+        />
+    )
+}
+
+function SingleQuestionQuiz({
+    question,
+    options,
+    fallbackOptions,
+    onComplete
+}: {
+    question: string
+    options?: unknown
+    fallbackOptions: string[]
+    onComplete: (response?: unknown) => void
+}) {
+    const rawOptions = Array.isArray(options) ? options : []
+    const cleaned = rawOptions.filter(
         (option): option is string => typeof option === "string" && Boolean(option.trim())
     )
-    const safeOptions = options.length >= 2 ? options : DEFAULT_QUIZ.options
+    const safeOptions = cleaned.length >= 2 ? cleaned : fallbackOptions
     const [selected, setSelected] = useState<string | null>(null)
 
     const submit = () => {
@@ -606,6 +715,123 @@ function QuizTask({ params, onComplete }: TaskComponentProps) {
             >
                 Submit
             </button>
+        </div>
+    )
+}
+
+function MultiQuestionQuiz({
+    title,
+    questions,
+    onComplete
+}: {
+    title: string
+    questions: QuizQuestion[]
+    onComplete: (response?: unknown) => void
+}) {
+    const [index, setIndex] = useState(0)
+    const [answers, setAnswers] = useState<string[]>(() => questions.map(() => ""))
+    const [customValues, setCustomValues] = useState<string[]>(() => questions.map(() => ""))
+    const [done, setDone] = useState(false)
+    const question = questions[index]
+    const answer = answers[index]
+    const customValue = customValues[index]
+    const isLast = index === questions.length - 1
+    const canContinue = Boolean(answer.trim() || customValue.trim())
+
+    const selectOption = (option: string) => {
+        setAnswers((current) => current.map((value, i) => (i === index ? option : value)))
+        setCustomValues((current) => current.map((value, i) => (i === index ? "" : value)))
+    }
+
+    const changeCustom = (value: string) => {
+        setCustomValues((current) => current.map((item, i) => (i === index ? value : item)))
+        setAnswers((current) => current.map((item, i) => (i === index ? value : item)))
+    }
+
+    const next = () => {
+        if (!canContinue) return
+        if (isLast) {
+            setDone(true)
+        } else {
+            setIndex((current) => current + 1)
+        }
+    }
+
+    if (done) {
+        return (
+            <div className="task-panel">
+                <h1 className="tasks-eyebrow">Reflection complete</h1>
+                <p className="tasks-title">One response to carry forward</p>
+                <p className="task-body">Thank you for meeting this teaching with attention. The page will appear in a moment.</p>
+                <button
+                    type="button"
+                    className="task-primary-button"
+                    onClick={() => onComplete({ responses: answers, title })}
+                >
+                    Continue
+                </button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="task-panel">
+            <div className="quiz-header">
+                <h1 className="tasks-eyebrow quiz-eyebrow">{title}</h1>
+                <span className="quiz-step-count">{index + 1} / {questions.length}</span>
+            </div>
+            <div className="quiz-steps" aria-hidden="true">
+                {questions.map((_, stepIndex) => (
+                    <i key={`quiz-step-${stepIndex}`} className={`quiz-step-dot ${stepIndex <= index ? "active" : ""}`} />
+                ))}
+            </div>
+            <p className="tasks-title quiz-prompt">{question.prompt}</p>
+            <div className="quiz-options">
+                {question.options.map((option, optionIndex) => {
+                    const selected = answer === option && !customValue.trim()
+                    return (
+                        <button
+                            key={`${option}-${optionIndex}`}
+                            type="button"
+                            className={`quiz-option ${selected ? "selected" : ""}`}
+                            onClick={() => selectOption(option)}
+                        >
+                            {option}
+                        </button>
+                    )
+                })}
+                <input
+                    type="text"
+                    value={customValue}
+                    onChange={(event) => changeCustom(event.target.value)}
+                    onFocus={() => {
+                        if (!customValue.trim()) {
+                            setAnswers((current) => current.map((item, i) => (i === index ? "" : item)))
+                        }
+                    }}
+                    placeholder={question.customPlaceholder}
+                    className="quiz-custom-input"
+                    aria-label={question.customPlaceholder}
+                />
+            </div>
+            <div className="quiz-nav-row">
+                <button
+                    type="button"
+                    className="quiz-back-button"
+                    onClick={() => setIndex((current) => Math.max(0, current - 1))}
+                    disabled={index === 0}
+                >
+                    Back
+                </button>
+                <button
+                    type="button"
+                    className="task-primary-button quiz-next-button"
+                    disabled={!canContinue}
+                    onClick={next}
+                >
+                    {isLast ? "Complete reflection" : "Next question"}
+                </button>
+            </div>
         </div>
     )
 }
@@ -1127,10 +1353,19 @@ const OVERLAY_STYLE = `
     width: 210px;
     height: 210px;
     border-radius: 50%;
+    overflow: hidden;
     will-change: transform;
     background: radial-gradient(circle at 32% 30%, #a5f3fc 0%, #3b82f6 55%, #1e3a8a 100%);
     box-shadow: 0 0 90px rgba(59, 130, 246, 0.55);
     animation: breathe 8s ease-in-out infinite;
+}
+
+.breathe-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
 }
 
 @keyframes breathe {
@@ -1157,15 +1392,6 @@ const OVERLAY_STYLE = `
     stroke-width: 5;
     stroke-linecap: round;
     transition: stroke-dashoffset 1s linear;
-}
-
-.count {
-    position: absolute;
-    font-size: 44px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: #f8fafc;
-    font-variant-numeric: tabular-nums;
 }
 
 .breath-hint {
@@ -1377,6 +1603,101 @@ const OVERLAY_STYLE = `
     background: rgba(59, 130, 246, 0.35);
     border-color: #3b82f6;
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+}
+
+.quiz-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.quiz-eyebrow {
+    margin: 0;
+}
+
+.quiz-step-count {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: #94a3b8;
+}
+
+.quiz-steps {
+    display: flex;
+    gap: 6px;
+    margin: 0 0 24px;
+}
+
+.quiz-step-dot {
+    height: 4px;
+    flex: 1;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.28);
+    transition: background 200ms ease;
+}
+
+.quiz-step-dot.active {
+    background: #fbbf24;
+}
+
+.quiz-prompt {
+    font-size: 24px;
+}
+
+.quiz-custom-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(148, 163, 184, 0.08);
+    color: #f8fafc;
+    font: inherit;
+    font-size: 16px;
+}
+
+.quiz-custom-input::placeholder {
+    color: #94a3b8;
+}
+
+.quiz-custom-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.quiz-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.quiz-back-button {
+    padding: 14px 0;
+    border: 0;
+    background: transparent;
+    color: #94a3b8;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.quiz-back-button:hover {
+    color: #cbd5e1;
+}
+
+.quiz-back-button:disabled {
+    cursor: default;
+    opacity: 0.4;
+}
+
+.quiz-next-button {
+    margin: 0;
 }
 
 .story-paragraph {

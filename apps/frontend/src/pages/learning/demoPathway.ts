@@ -94,6 +94,36 @@ Practice: name one mental habit you want to stop feeding, and one quality you wa
       position: { x: 29, y: 77 }
     },
     {
+      id: "mindful-reflection",
+      title: "Mindful Reflection",
+      description: "A three-step check-in for attention, gratitude, and intention.",
+      type: "quiz",
+      content: {
+        quiz: {
+          title: "Mindful Check-In",
+          questions: [
+            {
+              prompt: "What distracted your mind the most today?",
+              options: ["The endless scroll (Social Media)", "The illusion of urgency (Overworking)", "Dwelling on the past (Regret)"],
+              customPlaceholder: "Another path..."
+            },
+            {
+              prompt: "What are you quietly grateful for in this moment?",
+              options: ["The breath that carries me", "The presence of loved ones", "The stillness between thoughts"],
+              customPlaceholder: "A silent gratitude..."
+            },
+            {
+              prompt: "What intention will you carry into tomorrow?",
+              options: ["To listen more than I speak", "To act with compassion", "To release what no longer serves me"],
+              customPlaceholder: "My own intention..."
+            }
+          ]
+        }
+      },
+      status: "available",
+      position: { x: 39, y: 84 }
+    },
+    {
       id: "right-mindfulness",
       title: "Right Mindfulness",
       description: "Observe body, feeling, mind, and patterns with presence.",

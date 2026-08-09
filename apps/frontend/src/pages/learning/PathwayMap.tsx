@@ -1,4 +1,4 @@
-import { Check, CircleDot, Flower2, PlayCircle, BookOpen } from "lucide-react";
+import { BookOpen, Check, CircleDot, Flower2, HelpCircle, PlayCircle } from "lucide-react";
 import { useEffect } from "react";
 import type { LessonNode, PathwayData } from "./types";
 
@@ -18,11 +18,9 @@ function NodeIcon({ node }: { node: LessonNode }) {
     return <Check aria-hidden="true" size={22} strokeWidth={2.4} />;
   }
 
-  return node.type === "video" ? (
-    <PlayCircle aria-hidden="true" size={21} strokeWidth={2.1} />
-  ) : (
-    <BookOpen aria-hidden="true" size={20} strokeWidth={2.1} />
-  );
+  if (node.type === "video") return <PlayCircle aria-hidden="true" size={21} strokeWidth={2.1} />;
+  if (node.type === "quiz") return <HelpCircle aria-hidden="true" size={20} strokeWidth={2.1} />;
+  return <BookOpen aria-hidden="true" size={20} strokeWidth={2.1} />;
 }
 
 export function PathwayMap({ pathway, selectedLessonId, onSelectLesson }: PathwayMapProps) {
