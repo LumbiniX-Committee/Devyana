@@ -202,7 +202,7 @@ export default function HourlyProductivityChart({
 						className="text-base font-semibold tracking-wide"
 						style={{ color: colors.ink, fontFamily: FONT }}
 					>
-						Today&apos;s Vinaya
+						Today&apos;s Activity
 					</h2>
 					<div className="mt-1.5 flex items-center gap-1.5">
 						<button

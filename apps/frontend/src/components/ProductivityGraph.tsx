@@ -29,12 +29,12 @@ const CELL_COLORS = [
 ];
 
 const WEEKDAY_LABELS: Array<{ key: string; label: string }> = [
-	{ key: "sun", label: "" },
-	{ key: "mon", label: "M" },
-	{ key: "tue", label: "" },
-	{ key: "wed", label: "W" },
-	{ key: "thu", label: "" },
-	{ key: "fri", label: "F" },
+	{ key: "sun", label: "Sun" },
+	{ key: "mon", label: "Mon" },
+	{ key: "tue", label: "Tue" },
+	{ key: "wed", label: "Wed" },
+	{ key: "thu", label: "Thu" },
+	{ key: "fri", label: "Fri" },
 	{ key: "sat", label: "" },
 ];
 
