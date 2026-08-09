@@ -80,7 +80,7 @@ export default function Health() {
 							>
 								<div>
 									<p className="text-sm font-medium">
-										{check.name.replaceAll("_", " ")}
+										{check.name.split("_").join(" ")}
 									</p>
 									<p className="mt-0.5 text-xs text-neutral-400">
 										{check.detail}

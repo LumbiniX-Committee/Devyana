@@ -123,7 +123,7 @@ export default function DebugHome() {
 				{Object.keys(results).length === 0 ? (
 					<p className="text-sm text-neutral-500">No results yet.</p>
 				) : (
-					<JsonBlock value={results} />
+					<JsonBlock label="Results" value={results} />
 				)}
 			</Card>
 
