@@ -304,9 +304,9 @@ export async function forceMinMergeTolerance(minStep: number): Promise<void> {
 // desktop bridge to be reachable.
 // ---------------------------------------------------------------------------
 
-export const TASKS_KEY = "frocus_tasks"
-export const FOCUS_MODE_KEY = "frocus_focus_mode"
-export const COOLDOWNS_KEY = "frocus_intervention_cooldowns"
+export const TASKS_KEY = "viyana_tasks"
+export const FOCUS_MODE_KEY = "viyana_focus_mode"
+export const COOLDOWNS_KEY = "viyana_intervention_cooldowns"
 
 export async function loadTasks(): Promise<Array<Task>> {
     const data = await chrome.storage.local.get(TASKS_KEY)

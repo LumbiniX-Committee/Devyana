@@ -113,9 +113,9 @@ export type ServerMessage = ServerAck | DesktopCommand;
 
 /**
  * A single suggested task shown in the Phase 2 panel of the intervention
- * overlay. Sourced from `chrome.storage.local["frocus_tasks"]` (sent by the
+ * overlay. Sourced from `chrome.storage.local["viyana_tasks"]` (sent by the
  * desktop via the `update_tasks` command) or from a local default linking to
- * the Frocus dashboard.
+ * the Viyana dashboard.
  */
 export type Task = {
     id: string;

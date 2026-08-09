@@ -112,7 +112,7 @@ function mountIntervention(message: InterventionMessage): void {
     if (mounted) return
 
     const host = document.createElement("div")
-    host.dataset.frocusIntervention = "true"
+    host.dataset.viyanaIntervention = "true"
 
     const shadow = host.attachShadow({ mode: "open" })
 

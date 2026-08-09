@@ -90,7 +90,7 @@ export default function Dashboard() {
 								className="buddha-heading text-2xl leading-tight"
 								style={{ color: INK }}
 							>
-								Frocus
+								Viyana
 							</h1>
 							<p className="text-xs" style={{ color: MUTED }}>
 								Welcome back, {name} — may this day unfold with ease.

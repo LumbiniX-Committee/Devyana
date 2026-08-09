@@ -22,7 +22,7 @@ use crate::state::AppState;
 
 fn init_tracing() {
     std::fs::create_dir_all("logs").ok();
-    let file_appender = tracing_appender::rolling::daily("logs", "frocus.log");
+    let file_appender = tracing_appender::rolling::daily("logs", "viyana.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
@@ -89,7 +89,7 @@ pub fn run() {
             // pipeline as the browser extension).
             desktop_tracker::start(state.clone());
 
-            tracing::info!("Frocus backend initialized");
+            tracing::info!("Viyana backend initialized");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

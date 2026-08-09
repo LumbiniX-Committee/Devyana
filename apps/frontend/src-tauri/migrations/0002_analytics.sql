@@ -1,4 +1,4 @@
--- Frocus behavioral runtime: analytics + AI batching.
+-- Viyana behavioral runtime: analytics + AI batching.
 
 -- Per-day rollups so dashboard refreshes never scan thousands of sessions.
 -- Refresh interval: 5 minutes for the current day, lazily backfilled for

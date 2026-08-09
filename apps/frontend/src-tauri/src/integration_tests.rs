@@ -50,7 +50,7 @@ fn temp_db_path() -> PathBuf {
     static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     std::env::temp_dir()
-        .join(format!("frocus_it_{}_{}", std::process::id(), n))
+        .join(format!("viyana_it_{}_{}", std::process::id(), n))
         .join("test.db")
 }
 

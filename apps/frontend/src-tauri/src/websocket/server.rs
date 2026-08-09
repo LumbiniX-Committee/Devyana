@@ -25,7 +25,7 @@ async fn bind_listener() -> Result<(TcpListener, u16), String> {
 }
 
 /// Starts the WebSocket server. Runs for the lifetime of the app process;
-/// emits a `frocus_ws_port` Tauri event once the port is chosen.
+/// emits a `viyana_ws_port` Tauri event once the port is chosen.
 pub async fn run(state: AppState) {
     let (listener, port) = match bind_listener().await {
         Ok(pair) => pair,
@@ -36,7 +36,7 @@ pub async fn run(state: AppState) {
     };
 
     tracing::info!(port, "websocket server listening on 127.0.0.1");
-    let _ = state.app.emit("frocus_ws_port", port);
+    let _ = state.app.emit("viyana_ws_port", port);
 
     loop {
         match listener.accept().await {

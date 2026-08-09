@@ -910,7 +910,7 @@ mod tests {
 
     #[tokio::test]
     async fn focus_summary_aggregates_daily_totals() {
-        let dir = std::env::temp_dir().join(format!("frocus-analytics-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("viyana-analytics-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let pool = crate::db::pool::create_pool(&dir.join("test.db"))
             .await
@@ -987,7 +987,7 @@ mod tests {
 
     #[tokio::test]
     async fn hourly_activity_buckets_by_local_hour() {
-        let dir = std::env::temp_dir().join(format!("frocus-hourly-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("viyana-hourly-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let pool = crate::db::pool::create_pool(&dir.join("test.db"))
             .await
@@ -1077,7 +1077,7 @@ mod tests {
 
     #[tokio::test]
     async fn user_behavior_trend_buckets_days_and_zero_fills() {
-        let dir = std::env::temp_dir().join(format!("frocus-trend-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("viyana-trend-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let pool = crate::db::pool::create_pool(&dir.join("test.db"))
             .await
@@ -1115,7 +1115,7 @@ mod tests {
 
     #[tokio::test]
     async fn negative_works_groups_categories_and_count() {
-        let dir = std::env::temp_dir().join(format!("frocus-neg-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("viyana-neg-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let pool = crate::db::pool::create_pool(&dir.join("test.db"))
             .await

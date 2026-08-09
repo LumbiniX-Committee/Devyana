@@ -1,4 +1,4 @@
--- Frocus behavioral runtime: initial schema.
+-- Viyana behavioral runtime: initial schema.
 
 -- User profile
 CREATE TABLE user_profile (
