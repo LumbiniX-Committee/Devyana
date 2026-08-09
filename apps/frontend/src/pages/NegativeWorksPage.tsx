@@ -1,6 +1,6 @@
 import { useEffect } from "react";
+import NegativeCards from "../components/negative/negative-cards/NegativeCards";
 import { lotusBackground } from "../lib/lotus";
-import NegativeWorksSection from "../components/negative/NegativeWorksSection";
 
 const INK = "#5C4B3A";
 const MUTED = "#85705B";
@@ -57,7 +57,10 @@ export default function NegativeWorksPage() {
 							</svg>
 						</div>
 						<div>
-							<h1 className="buddha-heading text-2xl leading-tight" style={{ color: INK }}>
+							<h1
+								className="buddha-heading text-2xl leading-tight"
+								style={{ color: INK }}
+							>
 								Negative Works
 							</h1>
 							<p className="text-xs" style={{ color: MUTED }}>
@@ -67,13 +70,14 @@ export default function NegativeWorksPage() {
 					</div>
 				</header>
 
-				<NegativeWorksSection />
+				<NegativeCards />
 
 				<footer
 					className="pt-2 pb-4 text-center text-xs"
 					style={{ color: MUTED, fontFamily: '"Georgia", serif' }}
 				>
-					&ldquo;Just as a snake sheds its skin, we must shed our past over and over again.&rdquo; — the Buddha
+					&ldquo;Just as a snake sheds its skin, we must shed our past over and
+					over again.&rdquo; — the Buddha
 				</footer>
 			</div>
 		</div>

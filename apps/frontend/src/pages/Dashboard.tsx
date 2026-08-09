@@ -2,7 +2,6 @@ import dayjs from "dayjs";
 import { lazy, Suspense, useEffect } from "react";
 
 import { DesktopTrackingStatusChip } from "../components/DesktopTracking";
-import NegativeWorksSection from "../components/negative/NegativeWorksSection";
 import TaskPanel from "../components/TaskPanel";
 import { lotusBackground } from "../lib/lotus";
 import "./buddha.css";
@@ -124,8 +123,6 @@ export default function Dashboard() {
 					</div>
 					<TaskPanel />
 				</section>
-
-				<NegativeWorksSection />
 
 				<footer
 					className="pt-2 pb-4 text-center text-xs"

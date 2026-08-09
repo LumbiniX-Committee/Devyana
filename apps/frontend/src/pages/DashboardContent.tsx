@@ -129,8 +129,6 @@ export default function DashboardContent() {
 						<TaskPanel />
 					</section>
 
-					<NegativeWorksSection />
-
 					<footer
 						className="pt-2 pb-4 text-center text-xs"
 						style={{ color: MUTED, fontFamily: '"Georgia", serif' }}
