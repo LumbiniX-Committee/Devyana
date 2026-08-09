@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <path id="petal" d="M12 2.6 C13.4 6.6, 13.9 9.6, 12 12.8 C10.1 9.6, 10.6 6.6, 12 2.6 Z"/>
+    <path id="petalOuter" d="M12 9.5 C13.6 13, 14.4 16.4, 12 24 C9.6 16.4, 10.4 13, 12 9.5 Z"/>
+  </defs>
+  <rect width="24" height="24" fill="#A9B87A"/>
+  <g stroke="#6F824A" stroke-width="0.5" fill="none" opacity="0.7">
+    <use href="#petalOuter" transform="rotate(0 12 12)"/>
+    <use href="#petalOuter" transform="rotate(45 12 12)"/>
+    <use href="#petalOuter" transform="rotate(90 12 12)"/>
+    <use href="#petalOuter" transform="rotate(135 12 12)"/>
+    <use href="#petalOuter" transform="rotate(180 12 12)"/>
+    <use href="#petalOuter" transform="rotate(225 12 12)"/>
+    <use href="#petalOuter" transform="rotate(270 12 12)"/>
+    <use href="#petalOuter" transform="rotate(315 12 12)"/>
+  </g>
+  <g stroke="#6F824A" stroke-width="0.6" fill="none" opacity="0.85">
+    <use href="#petal" transform="rotate(0 12 12)"/>
+    <use href="#petal" transform="rotate(45 12 12)"/>
+    <use href="#petal" transform="rotate(90 12 12)"/>
+    <use href="#petal" transform="rotate(135 12 12)"/>
+    <use href="#petal" transform="rotate(180 12 12)"/>
+    <use href="#petal" transform="rotate(225 12 12)"/>
+    <use href="#petal" transform="rotate(270 12 12)"/>
+    <use href="#petal" transform="rotate(315 12 12)"/>
+  </g>
+  <circle cx="12" cy="12" r="1.1" fill="#6F824A" opacity="0.8"/>
+</svg>

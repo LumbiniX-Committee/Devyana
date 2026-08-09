@@ -152,6 +152,22 @@ pub struct CategoryBucket {
     pub session_count: i64,
 }
 
+/// Minutes of tracked activity bucketed by hour-of-day (local time) for a
+/// single calendar day. Hours without any tracked activity are zero-filled so
+/// the chart renders a contiguous day.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HourlyActivity {
+    /// Hour-of-day (local), 0–23.
+    pub hour: i32,
+    /// Total tracked minutes in the hour bucket (any category).
+    pub total_minutes: f64,
+    /// Minutes attributed to a productive `ai_category`.
+    pub productive_minutes: f64,
+    /// Everything not productive (total - productive).
+    pub distracting_minutes: f64,
+}
+
 /// One block of a day's timeline.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -54,10 +54,11 @@ fn does_session_match(session: &NewSession, trigger: &CompletionTrigger) -> bool
 /// Marks a single task completed and, when it carries a recurrence rule,
 /// materialises the next instance. Emits `task-completed` to the frontend.
 async fn complete_matching_task(state: &AppState, task: &Task) -> Result<(), String> {
-    let updated =
-        crate::db::tasks_queries::complete_with_recurrence(&state.db, &task.id).await?;
+    let updated = crate::db::tasks_queries::complete_with_recurrence(&state.db, &task.id).await?;
     tracing::info!(task_id = %task.id, title = %task.title, "auto-completed task");
-    let _ = state.app.emit("task-completed", &serde_json::json!({ "id": updated.id }));
+    let _ = state
+        .app
+        .emit("task-completed", &serde_json::json!({ "id": updated.id }));
     crate::tasks::sync::broadcast_tasks_best_effort(state).await;
     Ok(())
 }
@@ -121,15 +122,27 @@ mod tests {
     #[test]
     fn matches_on_category() {
         let session = session("deep_work", vec![], 1000);
-        assert!(does_session_match(&session, &trigger(r#"{ "aiCategory": "deep_work" }"#)));
-        assert!(!does_session_match(&session, &trigger(r#"{ "aiCategory": "social_media" }"#)));
+        assert!(does_session_match(
+            &session,
+            &trigger(r#"{ "aiCategory": "deep_work" }"#)
+        ));
+        assert!(!does_session_match(
+            &session,
+            &trigger(r#"{ "aiCategory": "social_media" }"#)
+        ));
     }
 
     #[test]
     fn matches_on_rule_ids() {
         let session = session("coding", vec!["r1", "r2"], 1000);
-        assert!(does_session_match(&session, &trigger(r#"{ "ruleIds": ["r2", "r9"] }"#)));
-        assert!(!does_session_match(&session, &trigger(r#"{ "ruleIds": ["r7"] }"#)));
+        assert!(does_session_match(
+            &session,
+            &trigger(r#"{ "ruleIds": ["r2", "r9"] }"#)
+        ));
+        assert!(!does_session_match(
+            &session,
+            &trigger(r#"{ "ruleIds": ["r7"] }"#)
+        ));
     }
 
     #[test]
@@ -139,22 +152,30 @@ mod tests {
             category: String::new(),
             ..session("", vec![], 1000)
         };
-        assert!(does_session_match(&session, &trigger(r#"{ "ruleIds": ["p1"] }"#)));
+        assert!(does_session_match(
+            &session,
+            &trigger(r#"{ "ruleIds": ["p1"] }"#)
+        ));
     }
 
     #[test]
     fn requires_min_duration() {
         let session = session("reading", vec![], 500);
-        assert!(!does_session_match(&session, &trigger(r#"{ "minDurationMs": 600 }"#)));
-        assert!(does_session_match(&session, &trigger(r#"{ "minDurationMs": 500 }"#)));
+        assert!(!does_session_match(
+            &session,
+            &trigger(r#"{ "minDurationMs": 600 }"#)
+        ));
+        assert!(does_session_match(
+            &session,
+            &trigger(r#"{ "minDurationMs": 500 }"#)
+        ));
     }
 
     #[test]
     fn ands_all_conditions() {
         let matching = session("deep_work", vec!["r1"], 2000);
-        let trigger = trigger(
-            r#"{ "ruleIds": ["r1"], "aiCategory": "deep_work", "minDurationMs": 1000 }"#,
-        );
+        let trigger =
+            trigger(r#"{ "ruleIds": ["r1"], "aiCategory": "deep_work", "minDurationMs": 1000 }"#);
         assert!(does_session_match(&matching, &trigger));
 
         let short = session("deep_work", vec!["r1"], 500);

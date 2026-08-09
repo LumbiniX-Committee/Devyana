@@ -29,23 +29,21 @@ pub fn get_next_due_date(rrule_str: &str) -> Option<String> {
     let result = set.all(MAX_OCCURRENCES);
 
     // `.all` starts at DTSTART, so skip occurrences up to and including today.
-    let next = result
-        .dates
-        .into_iter()
-        .find(|d| *d > dtstart)?;
+    let next = result.dates.into_iter().find(|d| *d > dtstart)?;
     Some(next.with_timezone(&Local).format("%Y-%m-%d").to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-use chrono::{Datelike, NaiveDate};
+    use chrono::{Datelike, NaiveDate};
 
     fn next_due(rule: &str) -> Option<String> {
         get_next_due_date(rule)
     }
 
-    #[test]    fn daily_yields_tomorrow() {
+    #[test]
+    fn daily_yields_tomorrow() {
         let tomorrow = (Local::now().date_naive() + chrono::Days::new(1))
             .format("%Y-%m-%d")
             .to_string();

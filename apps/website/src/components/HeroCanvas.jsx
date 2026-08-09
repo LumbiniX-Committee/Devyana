@@ -10,6 +10,7 @@ export default function HeroCanvas({ scrollTrackRef }) {
     const textRef1 = useRef(null);
     const textRef2 = useRef(null);
     const textRef3 = useRef(null);
+    const ctaRef = useRef(null);
 
     // Use the hook to get the image drawing function
     const { drawFrame, isLoading, progress, frameCount } = useCanvasVideo(canvasRef);
@@ -73,8 +74,21 @@ export default function HeroCanvas({ scrollTrackRef }) {
         );
         // It stays visible until the end, then scrolls away naturally with the sticky container
 
+        // CTA BUTTONS: appear centered on load, glide to bottom-left (home) as scene 2 plays
+        const recenter = () => {
+            const el = ctaRef.current;
+            if (!el) return;
+            const r = el.getBoundingClientRect();
+            const dx = window.innerWidth / 2 - (r.left + r.width / 2);
+            const dy = window.innerHeight * 0.6 - (r.top + r.height / 2);
+            gsap.set(el, { x: dx, y: dy });
+        };
+        recenter();
+        tl.to(ctaRef.current, { x: 0, y: 0, ease: 'power2.inOut', duration: 0.2 }, 0.28);
+
         return () => {
             window.removeEventListener('resize', handleResize);
+            window.removeEventListener('resize', recenter);
             ScrollTrigger.getById("hero-scroll")?.kill();
             tl.kill();
         };
@@ -117,18 +131,22 @@ export default function HeroCanvas({ scrollTrackRef }) {
                         <h1 ref={textRef2} className="font-serif text-[clamp(2.5rem,5vw,4rem)] text-white leading-none opacity-0 drop-shadow-2xl text-left">
                             Your habits.<br />His eightfold<br />path.
                         </h1>
-                        <div className="mt-8 flex flex-wrap gap-3">
-                            <a href="#">
-                                <button className="px-8 py-3 bg-white text-black rounded-full font-sans tracking-widest uppercase text-xs font-semibold hover:scale-105 transition-all duration-300 shadow-lg pointer-events-auto">
-                                    Download App
-                                </button>
-                            </a>
-                            <a href="#">
-                                <button className="px-8 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white font-sans tracking-widest uppercase text-xs hover:bg-brand-gold hover:text-black hover:border-brand-gold transition-all duration-300 shadow-lg hover:scale-105 pointer-events-auto">
-                                    Download Extension
-                                </button>
-                            </a>
-                        </div>
+                    </div>
+                </div>
+
+                {/* CTA Buttons: centered on load, glide to bottom-left as scene 2 plays */}
+                <div ref={ctaRef} className="absolute bottom-32 left-10 md:left-20 z-20 pointer-events-auto">
+                    <div className="flex flex-wrap gap-3">
+                        <a href="#">
+                            <button className="px-8 py-3 bg-white text-black rounded-full font-sans tracking-widest uppercase text-xs font-semibold hover:scale-105 hover:bg-brand-gold transition-all duration-300 shadow-lg">
+                                Download App
+                            </button>
+                        </a>
+                        <a href="#">
+                            <button className="px-8 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white font-sans tracking-widest uppercase text-xs hover:bg-brand-gold hover:text-black hover:border-brand-gold transition-all duration-300 shadow-lg hover:scale-105">
+                                Download Extension
+                            </button>
+                        </a>
                     </div>
                 </div>
 

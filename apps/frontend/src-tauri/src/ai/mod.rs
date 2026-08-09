@@ -16,8 +16,12 @@ pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSes
                     %category,
                     "classified session"
                 );
-                if let Err(err) =
-                    crate::db::queries::update_session_ai_category(&state.db, &session.id, &category).await
+                if let Err(err) = crate::db::queries::update_session_ai_category(
+                    &state.db,
+                    &session.id,
+                    &category,
+                )
+                .await
                 {
                     tracing::warn!(error = %err, "could not persist ai_category");
                     return;
@@ -26,8 +30,13 @@ pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSes
                 // Wake the AI batcher: a new classified session is queued.
                 let _ = state.ai_batch_notify.send(());
 
-                let updated = crate::db::models::NewSession { category, ..session };
-                if let Err(err) = crate::behavior::evaluator::evaluate_for_session(&state, &updated).await {
+                let updated = crate::db::models::NewSession {
+                    category,
+                    ..session
+                };
+                if let Err(err) =
+                    crate::behavior::evaluator::evaluate_for_session(&state, &updated).await
+                {
                     tracing::warn!(error = %err, "constraint evaluation after classification failed");
                 }
 
@@ -37,7 +46,8 @@ pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSes
                 let auto_session = updated.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(err) =
-                        crate::tasks::auto_complete::check_auto_complete(&auto_state, &auto_session).await
+                        crate::tasks::auto_complete::check_auto_complete(&auto_state, &auto_session)
+                            .await
                     {
                         tracing::warn!(error = %err, "auto-completion after classification failed");
                     }

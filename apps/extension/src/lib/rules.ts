@@ -18,6 +18,7 @@ export const DEFAULT_RULES: Array<Rule> = [
             { ref: "instagram" }
         ],
         behavior: {
+            emit: "never",
             priority: 100,
             intervention: {
                 trigger: "immediate",

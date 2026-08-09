@@ -482,14 +482,23 @@ class VinayaTracker {
             }
         }
 
-        if (desktopBridge.isConnect()) {
-            // Online path: unchanged, single event straight to the log/bridge.
-            desktopBridge.send(this.buildSessionEndEvent(this.session, endTime, duration, primaryRule))
-        } else {
-            // Offline path: coalesce consecutive identical sessions in storage.
-            // Pass a snapshot: the queued aggregation runs on a later microtask
-            // by which point `this.session` may already hold the next visit.
-            this.endSessionOffline(this.session, endTime, duration)
+        // Rule-based emission control: the session's primary rule decides
+        // whether this `session_end` ever leaves the browser. `emit: "never"`
+        // rules still accumulate time/meta locally (for interventions, usage
+        // limits, hostname tracking) but never produce a desktop/AI event.
+        // Missing `emit` defaults to `always`, preserving prior behaviour.
+        const emit = primaryRule?.behavior.emit ?? "always"
+
+        if (emit !== "never") {
+            if (desktopBridge.isConnect()) {
+                // Online path: single event straight to the log/bridge.
+                desktopBridge.send(this.buildSessionEndEvent(this.session, endTime, duration, primaryRule))
+            } else {
+                // Offline path: coalesce consecutive identical sessions in storage.
+                // Pass a snapshot: the queued aggregation runs on a later microtask
+                // by which point `this.session` may already be the next visit.
+                this.endSessionOffline(this.session, endTime, duration)
+            }
         }
 
         persistSession(null)

@@ -97,6 +97,7 @@ pub fn run() {
             commands::analytics::get_dashboard_snapshot,
             commands::analytics::get_category_breakdown,
             commands::analytics::get_timeline,
+            commands::analytics::get_hourly_activity,
             commands::productivity::get_productivity_grid,
             commands::tasks::add_task,
             commands::tasks::update_task,

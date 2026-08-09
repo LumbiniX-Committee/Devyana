@@ -254,7 +254,9 @@ pub async fn evaluate(
         }
 
         let window_start = window_start_ms(&def.scope, session.ended_at);
-        let used = crate::db::queries::total_time_for_rule_since(&state.db, &def.rule.id, window_start).await?;
+        let used =
+            crate::db::queries::total_time_for_rule_since(&state.db, &def.rule.id, window_start)
+                .await?;
         let total = used.saturating_add(session.duration_ms);
 
         if total >= def.limit_ms {

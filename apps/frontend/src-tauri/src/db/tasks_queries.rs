@@ -35,7 +35,9 @@ pub async fn insert_task(pool: &SqlitePool, input: &NewTask) -> Result<Task, Str
     .await
     .map_err(|e| format!("insert task: {e}"))?;
 
-    get_task(pool, &id).await?.ok_or_else(|| format!("task {id} not found after insert"))
+    get_task(pool, &id)
+        .await?
+        .ok_or_else(|| format!("task {id} not found after insert"))
 }
 
 pub async fn get_task(pool: &SqlitePool, id: &str) -> Result<Option<Task>, String> {
@@ -64,10 +66,7 @@ pub async fn list_tasks(pool: &SqlitePool) -> Result<Vec<Task>, String> {
 
 /// The 10 most recent uncompleted tasks, newest first. Used as local context
 /// for AI task suggestions.
-pub async fn recent_uncompleted_tasks(
-    pool: &SqlitePool,
-    limit: i32,
-) -> Result<Vec<Task>, String> {
+pub async fn recent_uncompleted_tasks(pool: &SqlitePool, limit: i32) -> Result<Vec<Task>, String> {
     sqlx::query_as::<_, Task>(
         "SELECT * FROM tasks WHERE status = 'pending'
          ORDER BY created_at DESC LIMIT ?",

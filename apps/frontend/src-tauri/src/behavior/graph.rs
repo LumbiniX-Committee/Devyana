@@ -15,15 +15,16 @@ async fn apply_graph_recommendations(
     };
 
     for item in items {
-        let definition =
-            match serde_json::from_value::<crate::behavior::constraints::ConstraintDefinition>(item)
-            {
-                Ok(def) => def,
-                Err(err) => {
-                    tracing::debug!(error = %err, "skipping malformed recommended constraint");
-                    continue;
-                }
-            };
+        let definition = match serde_json::from_value::<
+            crate::behavior::constraints::ConstraintDefinition,
+        >(item)
+        {
+            Ok(def) => def,
+            Err(err) => {
+                tracing::debug!(error = %err, "skipping malformed recommended constraint");
+                continue;
+            }
+        };
         if definition.limit_ms <= 0 {
             continue;
         }

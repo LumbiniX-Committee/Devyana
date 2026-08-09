@@ -20,7 +20,7 @@ fn default_ack_batch_size() -> usize {
 }
 
 fn default_ai_batch_interval_secs() -> u64 {
-    600
+    1800
 }
 
 fn default_ai_batch_min_size() -> usize {
@@ -40,7 +40,10 @@ fn default_session_retention_days() -> u64 {
 }
 
 fn default_ai_url_whitelist() -> Vec<String> {
-    vec!["v", "t", "list", "q", "ref"].into_iter().map(String::from).collect()
+    vec!["v", "t", "list", "q", "ref"]
+        .into_iter()
+        .map(String::from)
+        .collect()
 }
 
 /// How often the daily summary for the current day is recomputed.

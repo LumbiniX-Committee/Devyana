@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
-use tokio::net::TcpListener;
 use tauri::Emitter;
+use tokio::net::TcpListener;
 
 use crate::state::AppState;
 

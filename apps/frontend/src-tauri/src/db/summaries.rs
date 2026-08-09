@@ -162,11 +162,7 @@ pub async fn summaries_in_range(
 
     let mut out = Vec::new();
     for date in day_keys(start_date, end_date)? {
-        out.push(
-            mapped
-                .remove(&date)
-                .unwrap_or_else(Default::default),
-        );
+        out.push(mapped.remove(&date).unwrap_or_else(Default::default));
     }
     Ok(out)
 }

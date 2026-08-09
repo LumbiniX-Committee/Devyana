@@ -7,8 +7,8 @@ use crate::db::analytics_queries as aq;
 use crate::db::models::DailySummaryMetrics;
 use crate::db::{queries, summaries};
 use crate::models::analytics::{
-    ActiveConstraint, CategoryBucket, DashboardSnapshot, DailyReport, FocusSummary, FocusTrend,
-    HabitAdherence, RuleUsage, Timeline, WeeklyReport,
+    ActiveConstraint, CategoryBucket, DailyReport, DashboardSnapshot, FocusSummary, FocusTrend,
+    HabitAdherence, HourlyActivity, RuleUsage, Timeline, WeeklyReport,
 };
 use crate::state::AppState;
 
@@ -63,7 +63,9 @@ pub async fn get_dashboard_snapshot(
                 scope: def.scope.clone(),
                 limit_ms: def.limit_ms,
             });
-            rule_limits.entry(def.rule.id.clone()).or_insert(def.limit_ms);
+            rule_limits
+                .entry(def.rule.id.clone())
+                .or_insert(def.limit_ms);
         }
     }
 
@@ -72,7 +74,11 @@ pub async fn get_dashboard_snapshot(
         .into_iter()
         .filter_map(|(rule_id, used_ms)| {
             let limit_ms = rule_limits.get(&rule_id).copied()?;
-            Some(RuleUsage { rule_id, used_ms, limit_ms })
+            Some(RuleUsage {
+                rule_id,
+                used_ms,
+                limit_ms,
+            })
         })
         .collect();
 
@@ -108,11 +114,27 @@ pub async fn get_timeline(state: State<'_, AppState>, date: String) -> Result<Ti
     aq::timeline(&state.db, &date).await
 }
 
+/// Minutes of tracked activity bucketed per hour (local time) for one day.
+/// `start_hour`/`end_hour` default to 6..18 (06:00–18:00). The frontend picks
+/// which of total / productive / distracting minutes to render.
+#[tauri::command]
+pub async fn get_hourly_activity(
+    state: State<'_, AppState>,
+    date: String,
+    start_hour: Option<i32>,
+    end_hour: Option<i32>,
+) -> Result<Vec<HourlyActivity>, String> {
+    aq::hourly_activity(
+        &state.db,
+        &date,
+        start_hour.unwrap_or(6),
+        end_hour.unwrap_or(18),
+    )
+    .await
+}
+
 /// Assembles a 7-day report from daily summaries + range aggregations.
-async fn weekly_report(
-    pool: &sqlx::SqlitePool,
-    start_date: &str,
-) -> Result<WeeklyReport, String> {
+async fn weekly_report(pool: &sqlx::SqlitePool, start_date: &str) -> Result<WeeklyReport, String> {
     let start = chrono::NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
         .map_err(|e| format!("invalid start_date {start_date}: {e}"))?;
     let end = start
@@ -152,7 +174,11 @@ async fn weekly_report(
     let avg_daily_distraction_count = if metrics.is_empty() {
         0.0
     } else {
-        metrics.iter().map(|m| m.distraction_count as f64).sum::<f64>() / metrics.len() as f64
+        metrics
+            .iter()
+            .map(|m| m.distraction_count as f64)
+            .sum::<f64>()
+            / metrics.len() as f64
     };
 
     let top_distractions =
@@ -182,7 +208,10 @@ mod tests {
         let s = DashboardSnapshot {
             date: "2026-08-08".into(),
             active_constraints: vec![],
-            focus_mode: crate::models::analytics::FocusModeStatus { active: false, since_ms: None },
+            focus_mode: crate::models::analytics::FocusModeStatus {
+                active: false,
+                since_ms: None,
+            },
             cooldowns: vec![],
             usage: vec![],
             upcoming_reminders: vec![],

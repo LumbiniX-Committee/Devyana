@@ -14,6 +14,10 @@ const MAX_BATCH_SIZE: i64 = 400;
 /// continuous and merged before sending.
 const MERGE_GAP_MS: i64 = 60_000;
 
+/// How long the batcher waits before its first flush after startup, letting
+/// the app stabilize and any pending classification complete.
+const INITIAL_FLUSH_DELAY: Duration = Duration::from_secs(60);
+
 /// Strips identifying material from a URL before it leaves the machine:
 /// removes the fragment and drops every query parameter unless the key is in
 /// `whitelist` (e.g. `v` for a YouTube video id). Never panics on bad input.
@@ -185,7 +189,11 @@ async fn log_batch(state: &AppState, ids: &[String], merged: usize, success: boo
 /// sessions processed and applies any recommended constraints.
 async fn send_flush(state: &AppState, user_id: &str, sessions: Vec<Session>) -> Result<(), String> {
     let settings = state.settings();
-    let compressed = compress_sessions(&sessions, settings.ai_send_full_meta, &settings.ai_url_whitelist);
+    let compressed = compress_sessions(
+        &sessions,
+        settings.ai_send_full_meta,
+        &settings.ai_url_whitelist,
+    );
     let ids: Vec<String> = sessions.iter().map(|s| s.id.clone()).collect();
 
     let graph = match send_batch_with_retry(state, user_id, &compressed).await {
@@ -291,11 +299,14 @@ pub async fn start_ai_batcher(state: AppState) {
         guard.take().expect("ai batcher started twice")
     };
 
-    // The first tick of `tokio::time::interval` fires immediately; consume it
-    // so subsequent ticks align to the configured interval.
-    let mut ticker = tokio::time::interval(interval_for(&state));
+    // First flush fires after a short startup delay (let the app settle and
+    // any boot-time classifications land), then repeats every configured
+    // interval (`MissedTickBehavior::Delay` keeps cadence aligned afterward).
+    let mut ticker = tokio::time::interval_at(
+        tokio::time::Instant::now() + INITIAL_FLUSH_DELAY,
+        interval_for(&state),
+    );
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    ticker.tick().await;
 
     loop {
         tokio::select! {
@@ -323,13 +334,7 @@ pub async fn start_ai_batcher(state: AppState) {
 mod tests {
     use super::*;
 
-    fn session(
-        id: &str,
-        hostname: &str,
-        category: &str,
-        start: i64,
-        end: i64,
-    ) -> Session {
+    fn session(id: &str, hostname: &str, category: &str, start: i64, end: i64) -> Session {
         Session {
             id: id.to_string(),
             client_id: "c1".into(),
@@ -392,7 +397,11 @@ mod tests {
         ];
         let out = compress_sessions(&sessions, false, &whitelist);
         let sample = out.first().expect("one entry");
-        assert!(!sample.url.contains("token"), "token stripped: {}", sample.url);
+        assert!(
+            !sample.url.contains("token"),
+            "token stripped: {}",
+            sample.url
+        );
     }
 
     #[test]
@@ -404,7 +413,10 @@ mod tests {
         );
         assert!(!clean.contains("token"));
         assert!(!clean.contains("#section"));
-        assert!(clean.contains("v=abc123"), "whitelisted param kept: {clean}");
+        assert!(
+            clean.contains("v=abc123"),
+            "whitelisted param kept: {clean}"
+        );
 
         let stripped = sanitize_url_for_ai("https://x.com/p?token=SECRET#frag", &[]);
         assert_eq!(stripped, "https://x.com/p");
@@ -414,5 +426,77 @@ mod tests {
     fn sanitize_leaves_bad_input_unchanged() {
         let raw = "not a url at all";
         assert_eq!(sanitize_url_for_ai(raw, &[]), raw);
+    }
+
+    #[tokio::test]
+    async fn pending_ai_sessions_then_mark_processed_roundtrip() {
+        let dir = std::env::temp_dir().join(format!("frocus-ai-batch-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let pool = crate::db::pool::create_pool(&dir.join("test.db"))
+            .await
+            .expect("pool");
+
+        let new_session = |id: &str, start: i64| crate::db::models::NewSession {
+            id: id.to_string(),
+            client_id: "c1".into(),
+            browser_type: "chrome".into(),
+            url: format!("https://{id}.example.com/p"),
+            hostname: format!("{id}.example.com"),
+            pathname: "/p".into(),
+            meta: None,
+            duration_ms: 5_000,
+            started_at: start,
+            ended_at: start + 5_000,
+            matched_rules: vec![],
+            primary_rule_id: None,
+            tab_id: 0,
+            aggregated_from: Some(1),
+            category: String::new(),
+        };
+
+        for (id, start) in [("a", 1_000), ("b", 2_000), ("c", 3_000), ("d", 4_000)] {
+            crate::db::queries::insert_session(&pool, &new_session(id, start))
+                .await
+                .expect("insert session");
+        }
+        // Classified: a, b, d. Unclassified: c.
+        crate::db::queries::update_session_ai_category(&pool, "a", "learning")
+            .await
+            .expect("classify a");
+        crate::db::queries::update_session_ai_category(&pool, "b", "social_media")
+            .await
+            .expect("classify b");
+        crate::db::queries::update_session_ai_category(&pool, "d", "learning")
+            .await
+            .expect("classify d");
+        // d already flushed in a previous batch.
+        crate::db::analytics_queries::mark_sessions_processed_tx(&pool, &["d".to_string()])
+            .await
+            .expect("pre-mark d");
+
+        // Only classified + unprocessed sessions, in `started_at` order.
+        let pending = crate::db::analytics_queries::pending_ai_sessions(&pool, 100)
+            .await
+            .expect("pending");
+        let ids: Vec<&str> = pending.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["a", "b"],
+            "unclassified 'c' and processed 'd' are excluded"
+        );
+
+        // Probe replicating the mark fn at this point: tx + two binds.
+        let langs: Vec<String> = vec!["a".to_string(), "b".to_string()];
+
+        // Marking the batch processed leaves nothing left to flush.
+        let mark_res =
+            crate::db::analytics_queries::mark_sessions_processed_tx(&pool, &langs).await;
+        mark_res.expect("mark batch processed");
+        let remaining = crate::db::analytics_queries::pending_ai_sessions(&pool, 100)
+            .await
+            .expect("remaining");
+        assert!(remaining.is_empty(), "unclassified 'c' never qualifies");
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

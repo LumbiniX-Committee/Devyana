@@ -120,7 +120,15 @@ pub async fn classify_page(
         "recentSessions": recent_sessions,
     });
 
-    let value = with_retry(|| post_json(client, &settings.ai_classify_url, &settings.ai_api_key, &body)).await?;
+    let value = with_retry(|| {
+        post_json(
+            client,
+            &settings.ai_classify_url,
+            &settings.ai_api_key,
+            &body,
+        )
+    })
+    .await?;
 
     if let Some(category) = value.get("category").and_then(|c| c.as_str()) {
         return Ok(category.to_string());
@@ -188,12 +196,12 @@ pub async fn initialize_behavior_graph(
 }
 
 /// Convenience wrapper used by the event loop: classifies a recorded session.
-pub async fn classify_session(
-    state: &AppState,
-    session: &NewSession,
-) -> Result<String, AiError> {
+pub async fn classify_session(state: &AppState, session: &NewSession) -> Result<String, AiError> {
     let settings = state.settings();
-    let meta = session.meta.clone().unwrap_or_else(|| serde_json::json!({}));
+    let meta = session
+        .meta
+        .clone()
+        .unwrap_or_else(|| serde_json::json!({}));
     let recent = crate::db::queries::recent_session_context(&state.db, 12).await;
 
     classify_page(
@@ -237,5 +245,13 @@ pub async fn suggest_tasks(
         "context": existing_tasks,
     });
 
-    with_retry(|| post_json(client, &settings.ai_suggest_url, &settings.ai_api_key, &body)).await
+    with_retry(|| {
+        post_json(
+            client,
+            &settings.ai_suggest_url,
+            &settings.ai_api_key,
+            &body,
+        )
+    })
+    .await
 }

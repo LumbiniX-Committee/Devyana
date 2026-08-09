@@ -24,26 +24,27 @@ pub async fn save_profile(
     let state = state.inner().clone();
     tauri::async_runtime::spawn(async move {
         match queries::get_profile(&state.db).await {
-            Ok(Some(profile)) => match client::initialize_behavior_graph(
-                &state.ai.http,
-                &state.settings(),
-                &profile,
-            )
-            .await
-            {
-                Ok(graph) => match queries::store_behavior_graph(&state.db, &profile.id, &graph).await
+            Ok(Some(profile)) => {
+                match client::initialize_behavior_graph(&state.ai.http, &state.settings(), &profile)
+                    .await
                 {
-                    Ok(stored) => tracing::info!(
-                        user_id = %profile.id,
-                        version = stored.version,
-                        "behavior graph initialized"
-                    ),
-                    Err(err) => tracing::warn!(error = %err, "could not store initial graph"),
-                },
-                Err(err) => {
-                    tracing::warn!(error = %err, "graph initialization deferred (AI not reachable)");
+                    Ok(graph) => {
+                        match queries::store_behavior_graph(&state.db, &profile.id, &graph).await {
+                            Ok(stored) => tracing::info!(
+                                user_id = %profile.id,
+                                version = stored.version,
+                                "behavior graph initialized"
+                            ),
+                            Err(err) => {
+                                tracing::warn!(error = %err, "could not store initial graph")
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        tracing::warn!(error = %err, "graph initialization deferred (AI not reachable)");
+                    }
                 }
-            },
+            }
             Ok(None) => tracing::warn!("saved profile not found"),
             Err(err) => tracing::warn!(error = %err, "could not reload saved profile"),
         }
@@ -83,26 +84,27 @@ pub async fn complete_onboarding(
     let state = state.inner().clone();
     tauri::async_runtime::spawn(async move {
         match queries::get_profile_by_id(&state.db, &profile.id).await {
-            Ok(Some(profile)) => match client::initialize_behavior_graph(
-                &state.ai.http,
-                &state.settings(),
-                &profile,
-            )
-            .await
-            {
-                Ok(graph) => match queries::store_behavior_graph(&state.db, &profile.id, &graph).await
+            Ok(Some(profile)) => {
+                match client::initialize_behavior_graph(&state.ai.http, &state.settings(), &profile)
+                    .await
                 {
-                    Ok(stored) => tracing::info!(
-                        user_id = %profile.id,
-                        version = stored.version,
-                        "behavior graph initialized from onboarding"
-                    ),
-                    Err(err) => tracing::warn!(error = %err, "could not store onboarding graph"),
-                },
-                Err(err) => {
-                    tracing::warn!(error = %err, "onboarding graph deferred (AI not reachable)");
+                    Ok(graph) => {
+                        match queries::store_behavior_graph(&state.db, &profile.id, &graph).await {
+                            Ok(stored) => tracing::info!(
+                                user_id = %profile.id,
+                                version = stored.version,
+                                "behavior graph initialized from onboarding"
+                            ),
+                            Err(err) => {
+                                tracing::warn!(error = %err, "could not store onboarding graph")
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        tracing::warn!(error = %err, "onboarding graph deferred (AI not reachable)");
+                    }
                 }
-            },
+            }
             Ok(None) => tracing::warn!("onboarding profile not found after upsert"),
             Err(err) => tracing::warn!(error = %err, "could not reload onboarding profile"),
         }

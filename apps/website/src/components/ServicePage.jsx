@@ -42,7 +42,7 @@ export default function ServicePage({ title, subtitle, heroImage, description, f
                         transition={{ duration: 0.8, delay: 0.5 }}
                         className="flex flex-wrap items-center justify-center gap-3"
                     >
-                        <a href="#" className="px-8 py-3 bg-white text-black rounded-full font-sans tracking-widest uppercase text-xs font-semibold hover:scale-105 transition-all duration-300 shadow-lg">
+                        <a href="#" className="px-8 py-3 bg-white text-black rounded-full font-sans tracking-widest uppercase text-xs font-semibold hover:scale-105 hover:bg-brand-gold transition-all duration-300 shadow-lg">
                             Download App
                         </a>
                         <a href="#" className="px-8 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white font-sans tracking-widest uppercase text-xs hover:bg-brand-gold hover:text-black hover:border-brand-gold transition-all duration-300">

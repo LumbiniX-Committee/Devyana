@@ -1,6 +1,6 @@
 import { MotionConfig, motion } from "framer-motion";
 import { ArrowUp, RotateCcw, Sparkles, Target } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import ProductivityGraph from "../../components/ProductivityGraph";
@@ -9,6 +9,11 @@ import { AuroraBackground } from "./components/AuroraBackground";
 import { TopBar } from "./components/TopBar";
 import { toast } from "./components/ui/sonner";
 import "./onboarding.css";
+
+// ApexCharts is heavy (~1.5 MB) — load it only once the dashboard needs it.
+const HourlyProductivityChart = lazy(
+	() => import("../../components/charts/HourlyProductivityChart"),
+);
 
 const SUGGESTIONS = [
 	"Ease my anxiety right now",
@@ -134,6 +139,37 @@ export default function Dashboard() {
 							<RotateCcw className="h-3.5 w-3.5" strokeWidth={1.8} />
 							Replay onboarding
 						</button>
+					</motion.div>
+				</div>
+
+				<div className="relative z-20 mx-auto mb-6 w-full max-w-5xl px-6">
+					<motion.div
+						initial={{ opacity: 0, y: 18 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.7, ease, delay: 0.1 }}
+					>
+						<Suspense
+							fallback={
+								<div className="flex h-72 flex-col items-center justify-center gap-3 rounded-3xl text-sm text-[#5C4B3A]/60">
+									<div className="flex h-8 items-end gap-1.5">
+										{Array.from({ length: 12 }, (_, i) => 6 + i).map((hour) => (
+											<span
+												key={`hour-${hour}`}
+												className="w-5 rounded-t transition-colors"
+												style={{
+													height: `${6 + ((hour * 7) % 5) * 8}px`,
+													backgroundColor: "#A9B87A",
+													opacity: 0.4 + ((hour * 13) % 5) * 0.12,
+												}}
+											/>
+										))}
+									</div>
+									<p className="text-xs">Sitting with the data…</p>
+								</div>
+							}
+						>
+							<HourlyProductivityChart />
+						</Suspense>
 					</motion.div>
 				</div>
 

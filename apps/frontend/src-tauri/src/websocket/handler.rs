@@ -24,7 +24,10 @@ pub async fn handle_connection(state: AppState, stream: TcpStream, peer: SocketA
         |request: &tokio_tungstenite::tungstenite::http::Request<()>,
          response: tokio_tungstenite::tungstenite::http::Response<()>| {
             if !allowed.is_empty() {
-                if let Some(origin) = request.headers().get("Origin").and_then(|v| v.to_str().ok())
+                if let Some(origin) = request
+                    .headers()
+                    .get("Origin")
+                    .and_then(|v| v.to_str().ok())
                 {
                     if !allowed.iter().any(|prefix| origin.starts_with(prefix)) {
                         tracing::debug!(%origin, "websocket origin rejected");
@@ -109,8 +112,7 @@ pub async fn handle_connection(state: AppState, stream: TcpStream, peer: SocketA
                         pending_acks.push(env.entry_id.clone());
                         if immediate || pending_acks.len() >= ack_batch {
                             let ids = std::mem::take(&mut pending_acks);
-                            let ack =
-                                serde_json::json!({ "type": "ack", "ids": ids }).to_string();
+                            let ack = serde_json::json!({ "type": "ack", "ids": ids }).to_string();
                             if tx.send(Message::Text(ack.into())).await.is_err() {
                                 break;
                             }
@@ -162,12 +164,7 @@ async fn process_event(state: &AppState, client_id: Option<&str>, env: &EventEnv
                 url: event.url.clone(),
                 hostname: event.hostname.clone(),
                 pathname: event.pathname.clone(),
-                meta: if meta.is_null()
-                    || meta
-                        .as_object()
-                        .map(|o| o.is_empty())
-                        .unwrap_or(false)
-                {
+                meta: if meta.is_null() || meta.as_object().map(|o| o.is_empty()).unwrap_or(false) {
                     None
                 } else {
                     Some(meta)
@@ -257,7 +254,11 @@ async fn process_event(state: &AppState, client_id: Option<&str>, env: &EventEnv
             }
             true
         }
-        VinayaEvent::SystemEvent { name, message, data } => {
+        VinayaEvent::SystemEvent {
+            name,
+            message,
+            data,
+        } => {
             tracing::info!(
                 name = %name,
                 message = ?message,
@@ -273,13 +274,8 @@ async fn log_focus(state: &AppState, client_id: Option<&str>, kind: &str) {
     let Some(cid) = client_id else {
         return;
     };
-    if let Err(err) = queries::insert_focus_log(
-        &state.db,
-        cid,
-        kind,
-        chrono::Utc::now().timestamp_millis(),
-    )
-    .await
+    if let Err(err) =
+        queries::insert_focus_log(&state.db, cid, kind, chrono::Utc::now().timestamp_millis()).await
     {
         tracing::debug!(error = %err, "focus log insert failed");
     }
@@ -293,7 +289,11 @@ async fn flush_pending_for_client(
 ) -> Result<(), String> {
     let commands = queries::pending_for_client(&state.db, client_id).await?;
     for command in commands {
-        if tx.send(Message::Text(command.payload.clone().into())).await.is_err() {
+        if tx
+            .send(Message::Text(command.payload.clone().into()))
+            .await
+            .is_err()
+        {
             tracing::warn!(client_id = %client_id, "client vanished mid-flush");
             return Ok(());
         }

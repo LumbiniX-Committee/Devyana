@@ -63,7 +63,7 @@ export default function Header() {
                     <a href="#" className="hidden md:block text-white text-sm font-semibold hover:text-brand-gold transition-colors whitespace-nowrap">Download App</a>
                     <a
                         href="#"
-                        className="bg-white text-black px-5 py-2 rounded-full font-sans text-sm font-semibold hover:scale-105 transition-transform hover:bg-brand-gold hover:text-white whitespace-nowrap"
+                        className="bg-white text-black px-5 py-2 rounded-full font-sans text-sm font-semibold hover:scale-105 transition-all hover:bg-brand-gold hover:text-black whitespace-nowrap"
                     >
                         Download Extension
                     </a>

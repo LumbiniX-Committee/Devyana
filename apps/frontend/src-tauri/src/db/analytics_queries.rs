@@ -1,9 +1,12 @@
-use chrono::{Datelike, Local, NaiveDate, TimeZone};
+use std::collections::HashMap;
+
+use chrono::{Datelike, Local, NaiveDate, TimeZone, Timelike};
 use sqlx::{Row, SqlitePool};
 
 use crate::db::models::Session;
 use crate::models::analytics::{
-    CategoryBucket, FocusModeStatus, FocusSummary, HabitAdherence, SiteStat, Timeline, TimelineBlock,
+    CategoryBucket, FocusModeStatus, FocusSummary, HabitAdherence, HourlyActivity, SiteStat,
+    Timeline, TimelineBlock,
 };
 use crate::models::tasks::DayProductivity;
 
@@ -77,7 +80,10 @@ pub fn day_bounds_ms(date: &str) -> Result<(i64, i64), String> {
 pub fn range_bounds_ms(start_date: &str, end_date: &str) -> Result<(i64, i64), String> {
     let end = parse_date(end_date)?;
     let end_next = end.succ_opt().ok_or("date overflow")?;
-    Ok((local_midnight_ms(parse_date(start_date)?)?, local_midnight_ms(end_next)?))
+    Ok((
+        local_midnight_ms(parse_date(start_date)?)?,
+        local_midnight_ms(end_next)?,
+    ))
 }
 
 /// UTC `YYYY-MM-DD HH:MM:SS` stored strings -> local `YYYY-MM-DD`.
@@ -172,10 +178,7 @@ pub async fn focus_summary_for_day(pool: &SqlitePool, date: &str) -> Result<Focu
 }
 
 /// Raw totals for the day (used by the dashboard snapshot and summary table).
-pub async fn day_totals(
-    pool: &SqlitePool,
-    date: &str,
-) -> Result<(i64, i64, i64, i64), String> {
+pub async fn day_totals(pool: &SqlitePool, date: &str) -> Result<(i64, i64, i64, i64), String> {
     let (start, end) = day_bounds_ms(date)?;
     let productive = PRODUCTIVE_CATEGORIES;
     let distracting = DISTRACTING_CATEGORIES;
@@ -267,6 +270,87 @@ pub async fn day_session_count(pool: &SqlitePool, date: &str) -> Result<i64, Str
     Ok(row.try_get::<i64, _>("c").unwrap_or(0))
 }
 
+/// Minutes of tracked activity per hour-of-day within `[start_hour, end_hour)`,
+/// bucketed by each session's *local* start hour (DST‑aware). Hours without any
+/// activity are zero-filled so callers can render a contiguous day.
+///
+/// Minutes are attributed to a single hour bucket by the session's `started_at`
+/// (an MVP simplification: sessions spanning an hour boundary are not sliced).
+pub async fn hourly_activity(
+    pool: &SqlitePool,
+    date: &str,
+    start_hour: i32,
+    end_hour: i32,
+) -> Result<Vec<HourlyActivity>, String> {
+    if !(0..=24).contains(&start_hour) || !(0..=24).contains(&end_hour) {
+        return Err(format!(
+            "hours must be in 0..=24, got {start_hour}..{end_hour}"
+        ));
+    }
+    if end_hour <= start_hour {
+        return Err(format!(
+            "end_hour {end_hour} must follow start_hour {start_hour}"
+        ));
+    }
+
+    let (start, end) = day_bounds_ms(date)?;
+    let rows = sqlx::query(
+        "SELECT started_at, duration_ms, ai_category FROM sessions
+         WHERE started_at >= ? AND started_at < ?",
+    )
+    .bind(start)
+    .bind(end)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("hourly activity: {e}"))?;
+
+    let mut buckets: HashMap<i32, (f64, f64)> = HashMap::new();
+    for row in rows {
+        let started_at: i64 = row.try_get("started_at").unwrap_or(0);
+        let duration_ms: i64 = row.try_get("duration_ms").unwrap_or(0);
+        let category: Option<String> = row
+            .try_get::<Option<String>, _>("ai_category")
+            .ok()
+            .flatten();
+
+        let hour = Local
+            .timestamp_millis_opt(started_at)
+            .single()
+            .map(|dt| dt.hour() as i32)
+            .unwrap_or(-1);
+        if hour < start_hour || hour >= end_hour {
+            continue;
+        }
+
+        let minutes = duration_ms as f64 / 60_000.0;
+        let productive = category
+            .as_deref()
+            .map(|c| PRODUCTIVE_CATEGORIES.contains(&c))
+            .unwrap_or(false);
+
+        let bucket = buckets.entry(hour).or_insert((0.0, 0.0));
+        bucket.0 += minutes;
+        if productive {
+            bucket.1 += minutes;
+        }
+    }
+
+    let snap = |x: f64| (x * 100.0).round() / 100.0;
+    Ok((start_hour..end_hour)
+        .map(|hour| {
+            let (total, productive) = buckets.get(&hour).copied().unwrap_or((0.0, 0.0));
+            let total = snap(total);
+            let productive = snap(productive);
+            HourlyActivity {
+                hour,
+                total_minutes: total,
+                productive_minutes: productive,
+                distracting_minutes: snap((total - productive).max(0.0)),
+            }
+        })
+        .collect())
+}
+
 // ---------------------------------------------------------------------------
 // Productivity grid
 // ---------------------------------------------------------------------------
@@ -292,8 +376,7 @@ pub async fn productivity_grid(
             // Pomodoros are not persisted yet; keep the field for future use.
             let pomodoro_sessions = 0i32;
 
-            let focus_ratio =
-                (focus_hours / PRODUCTIVE_DAY_TARGET_HOURS).clamp(0.0, 1.0);
+            let focus_ratio = (focus_hours / PRODUCTIVE_DAY_TARGET_HOURS).clamp(0.0, 1.0);
             let task_ratio = (tasks_completed as f64 / TASKS_BONUS_TARGET).clamp(0.0, 1.0);
             let pomodoro_ratio = (pomodoro_sessions as f64 / POMODORO_DAY_TARGET).clamp(0.0, 1.0);
 
@@ -595,10 +678,7 @@ fn compute_streaks(
 // ---------------------------------------------------------------------------
 
 /// Classified-but-unprocessed sessions in chronological order.
-pub async fn pending_ai_sessions(
-    pool: &SqlitePool,
-    limit: i64,
-) -> Result<Vec<Session>, String> {
+pub async fn pending_ai_sessions(pool: &SqlitePool, limit: i64) -> Result<Vec<Session>, String> {
     sqlx::query_as::<_, Session>(
         "SELECT * FROM sessions
          WHERE processed_for_graph = 0 AND ai_category IS NOT NULL
@@ -611,17 +691,14 @@ pub async fn pending_ai_sessions(
 }
 
 /// Marks the given session ids as processed inside a single transaction.
-pub async fn mark_sessions_processed_tx(
-    pool: &SqlitePool,
-    ids: &[String],
-) -> Result<(), String> {
+pub async fn mark_sessions_processed_tx(pool: &SqlitePool, ids: &[String]) -> Result<(), String> {
     if ids.is_empty() {
         return Ok(());
     }
     let mut tx = pool.begin().await.map_err(|e| format!("begin tx: {e}"))?;
     for chunk in ids.chunks(200) {
         let sql = format!(
-            "UPDATE sessions SET processed_for_graph = 1 WHERE id IN ({})",
+            "UPDATE sessions SET processed_for_graph = 1 WHERE id IN {}",
             in_list(chunk.len())
         );
         let mut query = sqlx::query(&sql);
@@ -719,17 +796,43 @@ mod tests {
         let (start, _end) = day_bounds_ms(&today).expect("bounds today");
         let tomorrow_start = start + 24 * 3600 * 1000;
 
-        let learning = make_session("s1", "youtube.com", "/learn", start + 3_600_000, start + 9_000_000);
-        let distracting = make_session("s2", "tiktok.com", "/feed", start + 10_000_000, start + 10_800_000);
+        let learning = make_session(
+            "s1",
+            "youtube.com",
+            "/learn",
+            start + 3_600_000,
+            start + 9_000_000,
+        );
+        let distracting = make_session(
+            "s2",
+            "tiktok.com",
+            "/feed",
+            start + 10_000_000,
+            start + 10_800_000,
+        );
         // Session on the *next* day: must not leak into today's totals.
-        let next_day = make_session("s3", "twitter.com", "/", tomorrow_start, tomorrow_start + 60_000);
+        let next_day = make_session(
+            "s3",
+            "twitter.com",
+            "/",
+            tomorrow_start,
+            tomorrow_start + 60_000,
+        );
 
         for s in [&learning, &distracting, &next_day] {
-            crate::db::queries::insert_session(&pool, s).await.expect("insert");
+            crate::db::queries::insert_session(&pool, s)
+                .await
+                .expect("insert");
         }
-        crate::db::queries::update_session_ai_category(&pool, &learning.id, "learning").await.expect("cat1");
-        crate::db::queries::update_session_ai_category(&pool, &distracting.id, "social_media").await.expect("cat2");
-        crate::db::queries::update_session_ai_category(&pool, &next_day.id, "learning").await.expect("cat3");
+        crate::db::queries::update_session_ai_category(&pool, &learning.id, "learning")
+            .await
+            .expect("cat1");
+        crate::db::queries::update_session_ai_category(&pool, &distracting.id, "social_media")
+            .await
+            .expect("cat2");
+        crate::db::queries::update_session_ai_category(&pool, &next_day.id, "learning")
+            .await
+            .expect("cat3");
 
         let summary = focus_summary_for_day(&pool, &today).await.expect("summary");
         assert_eq!(summary.total_focus_ms, 5_400_000, "1.5h learning youtube");
@@ -739,7 +842,9 @@ mod tests {
         assert_eq!(summary.most_distracting_site.as_deref(), Some("tiktok.com"));
 
         // Daily rollup agrees with the direct query.
-        crate::db::summaries::refresh_daily_summary(&pool, &today).await.expect("rollup");
+        crate::db::summaries::refresh_daily_summary(&pool, &today)
+            .await
+            .expect("rollup");
         let rows = crate::db::summaries::summaries_in_range(&pool, &today, &today)
             .await
             .expect("range");
@@ -748,8 +853,100 @@ mod tests {
         assert_eq!(rows[0].distraction_count, 1);
 
         // Category breakdown for the single day does not leak tomorrow.
-        let buckets = category_breakdown(&pool, &today, &today).await.expect("breakdown");
+        let buckets = category_breakdown(&pool, &today, &today)
+            .await
+            .expect("breakdown");
         assert_eq!(buckets.len(), 2, "learning + social_media only");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn hourly_activity_buckets_by_local_hour() {
+        let dir = std::env::temp_dir().join(format!("frocus-hourly-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let pool = crate::db::pool::create_pool(&dir.join("test.db"))
+            .await
+            .expect("pool");
+
+        let today = crate::db::summaries::today_key();
+        let (day_start, _end) = day_bounds_ms(&today).expect("bounds today");
+        let local_day = Local
+            .timestamp_millis_opt(day_start)
+            .single()
+            .unwrap()
+            .date_naive();
+
+        // 07h local: 30 min learning + 10 min social (40 total, 30 productive).
+        let seven = Local
+            .from_local_datetime(&local_day.and_hms_opt(7, 0, 0).unwrap())
+            .single()
+            .unwrap()
+            .timestamp_millis();
+        // 09h local: 20 min coding.
+        let nine = Local
+            .from_local_datetime(&local_day.and_hms_opt(9, 0, 0).unwrap())
+            .single()
+            .unwrap()
+            .timestamp_millis();
+
+        let learning = make_session("h1", "github.com", "/", seven, seven + 1_800_000);
+        let distracting = make_session(
+            "h2",
+            "tiktok.com",
+            "/",
+            seven + 1_800_000,
+            seven + 2_400_000,
+        );
+        let late = make_session("h3", "docs.rs", "/", nine, nine + 1_200_000);
+
+        for s in [&learning, &distracting, &late] {
+            crate::db::queries::insert_session(&pool, s)
+                .await
+                .expect("insert");
+        }
+        crate::db::queries::update_session_ai_category(&pool, &learning.id, "learning")
+            .await
+            .expect("cat1");
+        crate::db::queries::update_session_ai_category(&pool, &distracting.id, "social_media")
+            .await
+            .expect("cat2");
+        crate::db::queries::update_session_ai_category(&pool, &late.id, "coding")
+            .await
+            .expect("cat3");
+
+        let hours = hourly_activity(&pool, &today, 6, 18).await.expect("hours");
+        assert_eq!(hours.len(), 12, "6AM..6PM = twelve buckets");
+        assert_eq!(hours.first().map(|h| h.hour), Some(6));
+        assert_eq!(hours.last().map(|h| h.hour), Some(17));
+
+        let h7 = hours.iter().find(|h| h.hour == 7).expect("07h bucket");
+        assert!((h7.total_minutes - 40.0).abs() < 1e-6);
+        assert!((h7.productive_minutes - 30.0).abs() < 1e-6);
+        assert!((h7.distracting_minutes - 10.0).abs() < 1e-6);
+
+        let h9 = hours.iter().find(|h| h.hour == 9).expect("09h bucket");
+        assert!((h9.total_minutes - 20.0).abs() < 1e-6);
+        assert!((h9.productive_minutes - 20.0).abs() < 1e-6);
+        assert!(hours.iter().filter(|h| h.total_minutes > 0.0).count() == 2);
+
+        // A day without any tracked activity renders empty (all zeros).
+        let empty = hourly_activity(&pool, "2020-01-01", 6, 18)
+            .await
+            .expect("empty day");
+        assert_eq!(empty.len(), 12);
+        assert!(empty
+            .iter()
+            .all(|h| h.total_minutes == 0.0 && h.distracting_minutes == 0.0));
+
+        assert!(
+            hourly_activity(&pool, &today, 18, 6).await.is_err(),
+            "inverted range rejected"
+        );
+        assert!(
+            hourly_activity(&pool, &today, -1, 18).await.is_err(),
+            "out of range rejected"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

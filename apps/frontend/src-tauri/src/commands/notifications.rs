@@ -5,9 +5,7 @@ use crate::db::queries;
 use crate::state::AppState;
 
 #[tauri::command]
-pub async fn get_behavior_graph(
-    state: State<'_, AppState>,
-) -> Result<BehaviorGraph, String> {
+pub async fn get_behavior_graph(state: State<'_, AppState>) -> Result<BehaviorGraph, String> {
     queries::latest_behavior_graph(&state.db)
         .await?
         .ok_or_else(|| "no behavior graph exists yet".to_string())

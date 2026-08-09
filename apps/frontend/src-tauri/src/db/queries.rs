@@ -71,14 +71,12 @@ pub async fn list_sessions(
     limit: i32,
     offset: i32,
 ) -> Result<Vec<Session>, String> {
-    sqlx::query_as::<_, Session>(
-        "SELECT * FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?",
-    )
-    .bind(limit)
-    .bind(offset)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| format!("list sessions: {e}"))
+    sqlx::query_as::<_, Session>("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?")
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("list sessions: {e}"))
 }
 
 /// Sum of `duration_ms` owned by a rule since `since_ms` (inclusive), counting
@@ -104,10 +102,7 @@ pub async fn total_time_for_rule_since(
 }
 
 /// Lightweight recent-session context for the AI classifier.
-pub async fn recent_session_context(
-    pool: &SqlitePool,
-    limit: i32,
-) -> Vec<serde_json::Value> {
+pub async fn recent_session_context(pool: &SqlitePool, limit: i32) -> Vec<serde_json::Value> {
     match sqlx::query(
         "SELECT url, hostname, pathname, duration_ms, ai_category, started_at
          FROM sessions ORDER BY started_at DESC LIMIT ?",
@@ -162,12 +157,10 @@ pub async fn insert_focus_log(
 // ---------------------------------------------------------------------------
 
 pub async fn get_profile(pool: &SqlitePool) -> Result<Option<UserProfile>, String> {
-    sqlx::query_as::<_, UserProfile>(
-        "SELECT * FROM user_profile ORDER BY created_at DESC LIMIT 1",
-    )
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| format!("select profile: {e}"))
+    sqlx::query_as::<_, UserProfile>("SELECT * FROM user_profile ORDER BY created_at DESC LIMIT 1")
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| format!("select profile: {e}"))
 }
 
 /// True when at least one row exists in `user_profile`. Used by the startup
@@ -210,7 +203,10 @@ pub async fn save_profile(pool: &SqlitePool, input: &UserProfileInput) -> Result
     Ok(())
 }
 
-pub async fn upsert_profile(pool: &SqlitePool, input: &CompleteOnboardingInput) -> Result<(), String> {
+pub async fn upsert_profile(
+    pool: &SqlitePool,
+    input: &CompleteOnboardingInput,
+) -> Result<(), String> {
     let goals = serde_json::to_string(&input.goals).map_err(|e| e.to_string())?;
 
     sqlx::query(
@@ -267,12 +263,10 @@ pub async fn store_behavior_graph(
 }
 
 pub async fn latest_behavior_graph(pool: &SqlitePool) -> Result<Option<BehaviorGraph>, String> {
-    sqlx::query_as::<_, BehaviorGraph>(
-        "SELECT * FROM behavior_graph ORDER BY version DESC LIMIT 1",
-    )
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| format!("select behavior_graph: {e}"))
+    sqlx::query_as::<_, BehaviorGraph>("SELECT * FROM behavior_graph ORDER BY version DESC LIMIT 1")
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| format!("select behavior_graph: {e}"))
 }
 
 // ---------------------------------------------------------------------------

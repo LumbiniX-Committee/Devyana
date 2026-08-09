@@ -67,10 +67,7 @@ impl AppState {
     }
 
     pub fn settings(&self) -> AppSettings {
-        self.settings
-            .read()
-            .map(|g| g.clone())
-            .unwrap_or_default()
+        self.settings.read().map(|g| g.clone()).unwrap_or_default()
     }
 
     pub fn set_settings(&self, next: AppSettings) {
@@ -88,11 +85,13 @@ impl AppState {
     /// client to avoid unbounded growth.
     pub fn buffer_page_meta(&self, client_id: &str, url: &str, meta: serde_json::Value) {
         if let Ok(mut map) = self.page_meta_buffer.write() {
-            map.entry(client_id.to_string()).or_default().push(PageMetaEntry {
-                url: url.to_string(),
-                meta,
-                at: chrono::Utc::now().timestamp_millis(),
-            });
+            map.entry(client_id.to_string())
+                .or_default()
+                .push(PageMetaEntry {
+                    url: url.to_string(),
+                    meta,
+                    at: chrono::Utc::now().timestamp_millis(),
+                });
             if let Some(vec) = map.get_mut(client_id) {
                 if vec.len() > 16 {
                     vec.drain(0..vec.len() - 16);
