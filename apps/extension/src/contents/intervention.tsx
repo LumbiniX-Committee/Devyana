@@ -320,13 +320,6 @@ function TaskPhase({
     return <TaskComponent params={params} durationSec={durationSec} onComplete={onComplete} />
 }
 
-const TASK_COMPONENTS: Record<InterventionTaskType, ComponentType<TaskComponentProps>> = {
-    realization: RealizationTask,
-    inhale_exhale: BreathingTask,
-    divine_followups: DivineFollowupsTask,
-    custom: CustomTask
-}
-
 const DEFAULT_REALIZATION_QUESTION =
     "What were you about to do before this moment interrupted you?"
 
@@ -519,6 +512,28 @@ function CustomTask({ params, onComplete }: TaskComponentProps) {
             </button>
         </div>
     )
+}
+
+function UpcomingTask({ onComplete }: TaskComponentProps) {
+    return (
+        <div className="task-panel">
+            <p className="tasks-title">Coming Soon</p>
+            <p className="task-body">This intervention type is not yet implemented.</p>
+            <button type="button" className="task-primary-button" onClick={() => onComplete({})}>
+                Continue
+            </button>
+        </div>
+    )
+}
+
+const TASK_COMPONENTS: Record<InterventionTaskType, ComponentType<TaskComponentProps>> = {
+    realization: RealizationTask,
+    inhale_exhale: BreathingTask,
+    divine_followups: DivineFollowupsTask,
+    custom: CustomTask,
+    quiz: UpcomingTask,
+    story: UpcomingTask,
+    challenge: UpcomingTask
 }
 
 // ---------------------------------------------------------------------------

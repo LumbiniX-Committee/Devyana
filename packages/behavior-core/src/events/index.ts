@@ -143,7 +143,10 @@ export type InterventionTaskType =
     | "realization"
     | "inhale_exhale"
     | "divine_followups"
-    | "custom";
+    | "custom"
+    | "quiz"
+    | "story"
+    | "challenge";
 
 /**
  * Sent by the intervention content script as soon as the overlay mounts so the

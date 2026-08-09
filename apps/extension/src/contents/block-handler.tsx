@@ -26,6 +26,7 @@ interface BlockOverlayProps {
 	message?: string;
 	reason?: string;
 	until?: number;
+	gracePeriodMs?: number;
 	onUnblock: () => void;
 }
 
@@ -135,14 +136,18 @@ function mountBlock(message: BlockMessage): void {
 	blockUnlock = lockPageForBlock();
 
 	const type = message.command as BlockType;
+	const msg = "message" in message ? (message as Record<string, unknown>).message as string | undefined : undefined;
+	const reason = "reason" in message ? (message as Record<string, unknown>).reason as string | undefined : undefined;
+	const until = "until" in message ? (message as Record<string, unknown>).until as number | undefined : undefined;
+	const gracePeriodMs = "gracePeriodMs" in message ? (message as Record<string, unknown>).gracePeriodMs as number | undefined : undefined;
 
 	root.render(
 		<BlockOverlay
 			type={type}
-			message={message.message}
-			reason={message.reason}
-			until={message.until}
-			gracePeriodMs={message.gracePeriodMs}
+			message={msg}
+			reason={reason}
+			until={until}
+			gracePeriodMs={gracePeriodMs}
 			onUnblock={unmountBlock}
 		/>,
 	);

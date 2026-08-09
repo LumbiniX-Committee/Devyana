@@ -14,9 +14,13 @@ const handler: PlasmoMessaging.MessageHandler<
 	TestBlockRequest,
 	TestBlockResponse
 > = async (req, res) => {
-	const { command, tabId } = req.body;
+	const { command, tabId } = req.body ?? {};
 
 	try {
+		if (!command || !tabId) {
+			res.send({ ok: false, error: "Missing command or tabId" });
+			return;
+		}
 		await chrome.tabs.sendMessage(tabId, {
 			command,
 			tabId,

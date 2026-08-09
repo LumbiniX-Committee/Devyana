@@ -2,8 +2,11 @@ import iconUrl from "url:~assets/icon.development.png";
 import type {
 	BrowserType,
 	DesktopCommand,
+	InterventionTaskType,
+	Rule,
 	ServerMessage,
 	SystemEvent,
+	Task,
 	VinayaEvent,
 } from "@vinaya/behavior-core";
 import { DEFAULT_BREATHING_SEC } from "~background/enforcement";
@@ -223,6 +226,24 @@ class DesktopBridgeClient {
 	/** Invoked when the bridge switches to passive (long-offline) mode. */
 	private passiveHandlers: Array<() => void> = [];
 
+	/** Invoked by the desktop to update rules. */
+	private updateRulesHandlers: Array<(rules: Array<Rule>) => void> = [];
+
+	/** Invoked by the desktop to trigger an intervention. */
+	private showInterventionHandlers: Array<
+		(tabId: number, options: {
+			taskType: InterventionTaskType;
+			params?: Record<string, unknown>;
+			durationSec: number;
+			tasks: Array<Task>;
+		}) => void
+	> = [];
+
+	/** Invoked by the desktop to set focus mode. */
+	private setFocusModeHandlers: Array<
+		(mode: { active: boolean; workRuleIds?: Array<string> }) => void
+	> = [];
+
 	constructor() {
 		this.boot();
 	}
@@ -238,6 +259,33 @@ class DesktopBridgeClient {
 	/** Registers a handler invoked when the bridge enters passive mode. */
 	onPassiveMode(handler: () => void): void {
 		this.passiveHandlers.push(handler);
+	}
+
+	/** Registers a handler invoked when the desktop sends updated rules. */
+	onUpdateRules(handler: (rules: Array<Rule>) => void): void {
+		this.updateRulesHandlers.push(handler);
+	}
+
+	/** Registers a handler invoked when the desktop triggers an intervention. */
+	onShowIntervention(
+		handler: (
+			tabId: number,
+			options: {
+				taskType: InterventionTaskType;
+				params?: Record<string, unknown>;
+				durationSec: number;
+				tasks: Array<Task>;
+			}
+		) => void
+	): void {
+		this.showInterventionHandlers.push(handler);
+	}
+
+	/** Registers a handler invoked when the desktop sets focus mode. */
+	onSetFocusMode(
+		handler: (mode: { active: boolean; workRuleIds?: Array<string> }) => void
+	): void {
+		this.setFocusModeHandlers.push(handler);
 	}
 
 	/** Number of unsynced (offline, pending) events in the on-disk log. */
@@ -431,34 +479,30 @@ class DesktopBridgeClient {
 				break;
 
 			case "update_rules":
-				import("~background/index")
-					.then(({ tracker }) => tracker.updateRules(command.rules))
-					.catch(() => {});
+				for (const handler of this.updateRulesHandlers) {
+					handler(command.rules);
+				}
 				break;
 
 			case "update_tasks":
-				// Persist the task list; the enforcement engine reads it locally
-				// when constructing an intervention (no bridge needed).
 				saveTasks(command.tasks).catch(() => {});
 				break;
 
 			case "show_intervention":
-				import("~background/index")
-					.then(({ tracker }) => {
-						tracker.forceIntervention(command.tabId, {
-							taskType: command.taskType ?? "inhale_exhale",
-							params: command.params,
-							durationSec: command.durationSec ?? DEFAULT_BREATHING_SEC,
-							tasks: command.tasks ?? [],
-						});
-					})
-					.catch(() => {});
+				for (const handler of this.showInterventionHandlers) {
+					handler(command.tabId, {
+						taskType: command.taskType ?? "inhale_exhale",
+						params: command.params,
+						durationSec: command.durationSec ?? DEFAULT_BREATHING_SEC,
+						tasks: command.tasks ?? [],
+					});
+				}
 				break;
 
 			case "set_focus_mode":
-				import("~background/index")
-					.then(({ tracker }) => tracker.setFocusMode(command))
-					.catch(() => {});
+				for (const handler of this.setFocusModeHandlers) {
+					handler({ active: command.active, workRuleIds: command.workRuleIds });
+				}
 				break;
 		}
 	}

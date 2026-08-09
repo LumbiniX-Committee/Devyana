@@ -98,6 +98,15 @@ class VinayaTracker {
             void forceMinMergeTolerance(0)
         })
 
+        // Desktop command callbacks (avoid dynamic imports in service worker)
+        desktopBridge.onUpdateRules((rules) => this.updateRules(rules))
+        desktopBridge.onShowIntervention((tabId, options) =>
+            this.forceIntervention(tabId, options)
+        )
+        desktopBridge.onSetFocusMode((mode) =>
+            this.setFocusMode(mode)
+        )
+
         this.attachListeners()
         this.init()
     }
@@ -216,13 +225,17 @@ class VinayaTracker {
         const type = "type" in message ? (message as { type?: string }).type : undefined
 
         if (type === "get_connection_status") {
-            desktopBridge.getStatus()
-                .then(status => {
+            Promise.all([
+                desktopBridge.getStatus(),
+                desktopBridge.getUnsyncedCount(),
+                loadOfflineAccumulator()
+            ])
+                .then(([status, logUnsynced, accumulator]) => {
                     sendResponse({
                         connected: status.connected,
                         port: status.cachedWsPort,
                         passiveMode: status.passiveMode,
-                        unsyncedCount: status.unsyncedCount,
+                        unsyncedCount: logUnsynced + Object.keys(accumulator).length,
                         clientId: status.clientId,
                         browserType: status.browserType
                     })

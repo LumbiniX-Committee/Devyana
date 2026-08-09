@@ -1,6 +1,7 @@
 import type { PlasmoMessaging } from "@plasmohq/messaging";
 import { tracker } from "~background/index";
 import type { InterventionTaskType } from "@vinaya/behavior-core";
+import { parseUrl } from "~lib/compiler";
 
 interface TriggerInterventionRequest {
     tabId: number;
@@ -15,10 +16,10 @@ interface TriggerInterventionResponse {
 }
 
 const handler: PlasmoMessaging.MessageHandler<TriggerInterventionRequest, TriggerInterventionResponse> = async (req, res) => {
-    const { tabId, taskType, params, durationSec } = req.body;
+    const { tabId, taskType, params, durationSec } = req.body ?? {};
 
-    if (!tabId) {
-        res.send({ ok: false, error: "No tab ID provided" });
+    if (!tabId || !taskType) {
+        res.send({ ok: false, error: "Missing tabId or taskType" });
         return;
     }
 
@@ -40,8 +41,7 @@ const handler: PlasmoMessaging.MessageHandler<TriggerInterventionRequest, Trigge
             return;
         }
 
-        const { parseUrl } = await import("~lib/compiler");
-        const url = parseUrl(rawUrl);
+const url = parseUrl(rawUrl);
         if (!url) {
             res.send({ ok: false, error: "Invalid URL" });
             return;

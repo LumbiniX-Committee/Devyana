@@ -16,7 +16,7 @@ const handler: PlasmoMessaging.MessageHandler<
 	CooldownStatusResponse
 > = async (req, res) => {
 	try {
-		const { hostname } = req.body;
+		const { hostname } = req.body ?? {};
 		if (!hostname) {
 			res.send({ onCooldown: false });
 			return;
