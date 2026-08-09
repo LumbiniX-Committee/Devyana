@@ -1,4 +1,4 @@
-import type { InterventionKind, PageMeta, Rule } from "../types";
+import type { PageMeta, Rule } from "../types";
 
 export type BrowserType =
     | "chrome"
@@ -93,7 +93,8 @@ export type DesktopCommand =
     | {
         command: "show_intervention";
         tabId: number;
-        type: InterventionKind;
+        taskType?: InterventionTaskType;
+        params?: Record<string, unknown>;
         durationSec?: number;
         tasks?: Array<Task>;
     }
@@ -126,9 +127,22 @@ export type Task = {
 export type InterventionMessage = {
     type: "show_intervention";
     tabId?: number;
-    durationSec: number;
-    tasks: Array<Task>;
+    taskType: InterventionTaskType;
+    params?: Record<string, unknown>;
+    durationSec?: number;
+    tasks?: Array<Task>;
 };
+
+/**
+ * The actionable phase the Buddha's Palm overlay should run once the video has
+ * played to completion. Rules / the desktop pick one to drive a distinct,
+ * type-aware task.
+ */
+export type InterventionTaskType =
+    | "realization"
+    | "inhale_exhale"
+    | "divine_followups"
+    | "custom";
 
 /**
  * Sent by the intervention content script as soon as the overlay mounts so the
@@ -149,4 +163,8 @@ export type InterventionCompletedMessage = {
     type: "intervention_completed";
     tabId?: number;
     completed: boolean;
+    /** Task type that ran immediately before the suggestion phase. */
+    taskType?: InterventionTaskType;
+    /** Task-specific result (e.g. the realization reflection text). */
+    response?: unknown;
 };

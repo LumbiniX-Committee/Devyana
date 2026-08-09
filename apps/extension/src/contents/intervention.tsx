@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import type { PlasmoCSConfig } from "plasmo"
 import type {
     InterventionActiveMessage,
     InterventionCompletedMessage,
     InterventionMessage,
+    InterventionTaskType,
     Task
 } from "@vinaya/behavior-core"
+import buddhaPalmVideo from "url:~/assets/buddha-palm.mp4"
 
 export const config: PlasmoCSConfig = {
     matches: ["<all_urls>"],
@@ -26,14 +28,18 @@ if (window.top === window) {
 
 // ---------------------------------------------------------------------------
 // Page lockdown: the overlay must feel non-negotiable. We pin the document so
-// it cannot scroll, block every keyboard event at capture time, and disable
-// pointer events for everything except the overlay's own shadow root.
+// it cannot scroll, block every keyboard event (except typing inside the
+// overlay's own form controls) at capture time, and disable pointer events for
+// everything except the overlay's own shadow root.
 // ---------------------------------------------------------------------------
 
 type PageLock = {
     overflow: string;
     pointerEvents: string;
 }
+
+const DANGEROUS_KEYS = new Set(["Escape", "F1", "F5", "F11", "F12"])
+const DANGEROUS_SHORTCUTS = new Set(["r", "w", "t", "n"])
 
 function lockPage(): () => void {
     const rootEl = document.documentElement
@@ -45,7 +51,24 @@ function lockPage(): () => void {
     rootEl.style.overflow = "hidden"
     rootEl.style.pointerEvents = "none"
 
-    const swallow = (event: Event) => {
+    const swallow = (event: KeyboardEvent) => {
+        const target = event.target as HTMLElement | null
+        const editable = Boolean(
+            target &&
+            (target.isContentEditable ||
+                target.tagName === "TEXTAREA" ||
+                target.tagName === "INPUT" ||
+                target.tagName === "SELECT")
+        )
+        const key = event.key.toLowerCase()
+        const modified = event.ctrlKey || event.metaKey
+
+        const safe =
+            editable &&
+            !DANGEROUS_KEYS.has(event.key) &&
+            (!modified || !DANGEROUS_SHORTCUTS.has(key))
+
+        if (safe) return
         event.preventDefault()
         event.stopPropagation()
     }
@@ -66,11 +89,18 @@ function sendActive(tabId?: number): void {
     void chrome.runtime.sendMessage(message)
 }
 
-function sendCompleted(tabId: number | undefined, completed: boolean): void {
+function sendCompleted(
+    tabId: number | undefined,
+    completed: boolean,
+    taskType?: InterventionTaskType,
+    response?: unknown
+): void {
     const message: InterventionCompletedMessage = {
         type: "intervention_completed",
         tabId,
-        completed
+        completed,
+        taskType,
+        response
     }
     void chrome.runtime.sendMessage(message)
 }
@@ -104,8 +134,10 @@ function mountIntervention(message: InterventionMessage): void {
 
     root.render(
         <InterventionOverlay
+            taskType={message.taskType}
+            params={message.params}
             durationSec={message.durationSec}
-            tasks={message.tasks}
+            tasks={message.tasks ?? []}
             tabId={message.tabId}
         />
     )
@@ -129,66 +161,246 @@ function unmountIntervention(): void {
 // ---------------------------------------------------------------------------
 
 interface InterventionOverlayProps {
-    durationSec: number
+    taskType: InterventionTaskType
+    params?: Record<string, unknown>
+    durationSec?: number
     tasks: Array<Task>
     tabId?: number
 }
 
-type Phase = "breathing" | "tasks"
+type Phase = "video" | "task" | "tasks"
 
-function InterventionOverlay({ durationSec, tasks, tabId }: InterventionOverlayProps) {
-    const totalSec = Math.max(1, durationSec)
-    const [remaining, setRemaining] = useState(totalSec)
-    const [phase, setPhase] = useState<Phase>("breathing")
-    const [breathIn, setBreathIn] = useState(true)
+interface TaskComponentProps {
+    params?: Record<string, unknown>
+    durationSec?: number
+    onComplete: (response?: unknown) => void
+}
+
+const CHOOSE_LATER_DELAY_MS = 10_000
+
+function InterventionOverlay({
+    taskType,
+    params,
+    durationSec,
+    tasks,
+    tabId
+}: InterventionOverlayProps) {
+    const [phase, setPhase] = useState<Phase>("video")
+    const [taskResult, setTaskResult] = useState<{
+        taskType: InterventionTaskType
+        response?: unknown
+    } | null>(null)
     const [canChooseLater, setCanChooseLater] = useState(false)
 
     useEffect(() => {
-        const timer = window.setInterval(() => {
-            setRemaining((prev) => {
-                if (prev <= 1) {
-                    setPhase("tasks")
-                    return 0
-                }
-                return prev - 1
-            })
-        }, 1_000)
-
-        return () => window.clearInterval(timer)
-    }, [])
-
-    useEffect(() => {
-        const breath = window.setInterval(() => {
-            setBreathIn((value) => !value)
-        }, 4_000)
-
-        return () => window.clearInterval(breath)
-    }, [])
-
-    useEffect(() => {
+        if (phase !== "tasks") return
         const delayed = window.setTimeout(() => {
             setCanChooseLater(true)
-        }, 10_000)
-
+        }, CHOOSE_LATER_DELAY_MS)
         return () => window.clearTimeout(delayed)
-    }, [])
+    }, [phase])
+
+    const handleVideoEnded = () => setPhase("task")
+
+    const handleVideoError = () => {
+        window.setTimeout(() => setPhase("task"), 800)
+    }
+
+    const handleTaskComplete = (response?: unknown) => {
+        setTaskResult({ taskType, response })
+        setPhase("tasks")
+    }
 
     const handleTask = (task: Task) => {
-        sendCompleted(tabId, true)
+        sendCompleted(tabId, true, taskResult?.taskType, taskResult?.response)
         unmountIntervention()
         if (task.url) {
-            // Steer the current tab back to the task.
             window.location.href = task.url
         } else {
-            // Fallback: open the dashboard so the user can choose a task.
             window.open(DASHBOARD_URL, "_blank")
         }
     }
 
     const handleChooseLater = () => {
-        sendCompleted(tabId, false)
+        sendCompleted(tabId, false, taskResult?.taskType, taskResult?.response)
         unmountIntervention()
     }
+
+    return (
+        <div className="intervention" role="dialog" aria-modal="true">
+            {phase === "video" && (
+                <div className="stage stage-visible video-stage">
+                    <VideoBuddhaPalm onEnded={handleVideoEnded} onError={handleVideoError} />
+                </div>
+            )}
+
+            {phase === "task" && (
+                <div className="stage stage-visible">
+                    <TaskPhase
+                        taskType={taskType}
+                        params={params}
+                        durationSec={durationSec}
+                        onComplete={handleTaskComplete}
+                    />
+                </div>
+            )}
+
+            {phase === "tasks" && (
+                <div className="stage stage-visible">
+                    <TaskSuggestions
+                        tasks={tasks}
+                        canChooseLater={canChooseLater}
+                        onTask={handleTask}
+                        onChooseLater={handleChooseLater}
+                    />
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 0: Buddha's Palm video playback
+// ---------------------------------------------------------------------------
+
+function VideoBuddhaPalm({ onEnded, onError }: { onEnded: () => void; onError: () => void }) {
+    const videoRef = useRef<HTMLVideoElement>(null)
+    const [needsGesture, setNeedsGesture] = useState(false)
+
+    useEffect(() => {
+        videoRef.current?.play().catch(() => setNeedsGesture(true))
+    }, [])
+
+    const handleClick = () => {
+        const video = videoRef.current
+        if (!video) return
+        video.play()
+            .then(() => setNeedsGesture(false))
+            .catch(() => { })
+    }
+
+    return (
+        <button
+            type="button"
+            className="buddha-video"
+            onClick={handleClick}
+            aria-label="Begin the Buddha's Palm intervention"
+        >
+            <video
+                ref={videoRef}
+                className="buddha-video-player"
+                src={buddhaPalmVideo}
+                autoPlay
+                muted
+                playsInline
+                onEnded={onEnded}
+                onError={onError}
+            />
+            {needsGesture && <span className="gesture-label">Tap to begin</span>}
+        </button>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1: type-driven actionable tasks
+// ---------------------------------------------------------------------------
+
+function TaskPhase({
+    taskType,
+    params,
+    durationSec,
+    onComplete
+}: {
+    taskType: InterventionTaskType
+    params?: Record<string, unknown>
+    durationSec?: number
+    onComplete: (response?: unknown) => void
+}) {
+    const TaskComponent = TASK_COMPONENTS[taskType] ?? CustomTask
+    return <TaskComponent params={params} durationSec={durationSec} onComplete={onComplete} />
+}
+
+const TASK_COMPONENTS: Record<InterventionTaskType, ComponentType<TaskComponentProps>> = {
+    realization: RealizationTask,
+    inhale_exhale: BreathingTask,
+    divine_followups: DivineFollowupsTask,
+    custom: CustomTask
+}
+
+const DEFAULT_REALIZATION_QUESTION =
+    "What were you about to do before this moment interrupted you?"
+
+function RealizationTask({ params, onComplete }: TaskComponentProps) {
+    const question =
+        typeof params?.question === "string" && params.question.trim().length > 0
+            ? params.question
+            : DEFAULT_REALIZATION_QUESTION
+    const minChars = typeof params?.minChars === "number" ? params.minChars : 20
+    const [text, setText] = useState("")
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const length = text.trim().length
+    const canSubmit = length >= minChars
+
+    useEffect(() => {
+        textareaRef.current?.focus()
+    }, [])
+
+    const submit = () => onComplete({ response: text.trim() })
+
+    return (
+        <div className="task-panel">
+            <h1 className="tasks-eyebrow">Reflect</h1>
+            <p className="tasks-title">{question}</p>
+            <textarea
+                ref={textareaRef}
+                className="realization-textarea"
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                placeholder="Write whatever comes to mind…"
+                rows={6}
+            />
+            <p className="char-hint" aria-live="polite">
+                {length}/{minChars} characters
+            </p>
+            <button
+                type="button"
+                className="task-primary-button"
+                disabled={!canSubmit}
+                onClick={() => submit()}
+            >
+                Submit
+            </button>
+        </div>
+    )
+}
+
+function BreathingTask({ params, durationSec, onComplete }: TaskComponentProps) {
+    const totalSec = Math.max(
+        1,
+        typeof params?.durationSec === "number" ? params.durationSec : durationSec ?? 30
+    )
+    const [remaining, setRemaining] = useState(totalSec)
+    const [breathIn, setBreathIn] = useState(true)
+
+    useEffect(() => {
+        const timer = window.setInterval(() => {
+            setRemaining((prev) => {
+                if (prev <= 1) {
+                    onComplete({})
+                    return 0
+                }
+                return prev - 1
+            })
+        }, 1_000)
+        return () => window.clearInterval(timer)
+    }, [onComplete])
+
+    useEffect(() => {
+        const breath = window.setInterval(() => {
+            setBreathIn((value) => !value)
+        }, 4_000)
+        return () => window.clearInterval(breath)
+    }, [])
 
     const progress = totalSec <= 0 ? 0 : remaining / totalSec
     const ringRadius = 54
@@ -196,76 +408,158 @@ function InterventionOverlay({ durationSec, tasks, tabId }: InterventionOverlayP
     const ringOffset = ringCircumference * (1 - progress)
 
     return (
-        <div className="intervention" role="dialog" aria-modal="true">
-            <div
-                className={`stage ${phase === "breathing" ? "stage-visible" : ""}`}
+        <>
+            <div className="breathe-wrap">
+                <div className="breathe-circle" />
+                <svg
+                    className="breathe-ring"
+                    viewBox="0 0 120 120"
+                    role="img"
+                    aria-label="Breathing exercise progress"
+                >
+                    <title>Breathing exercise progress</title>
+                    <circle className="breathe-ring-bg" cx="60" cy="60" r={ringRadius} />
+                    <circle
+                        className="breathe-ring-fg"
+                        cx="60"
+                        cy="60"
+                        r={ringRadius}
+                        strokeDasharray={ringCircumference}
+                        strokeDashoffset={ringOffset}
+                        transform="rotate(-90 60 60)"
+                    />
+                </svg>
+                <div className="count" aria-live="assertive">
+                    {remaining}
+                </div>
+            </div>
+            <p className="breath-hint" key={String(breathIn)}>
+                {breathIn ? "Breathe in…" : "Breathe out…"}
+            </p>
+            <p className="breath-sub">Give your attention a moment to land.</p>
+        </>
+    )
+}
+
+const DEFAULT_DIVINE_PROMPTS = [
+    "Place your hand on your heart.",
+    "Take one slow, deep breath.",
+    "Think of one thing you are grateful for.",
+    "Let go of anything you cannot control.",
+    "Return to the task that matters most."
+]
+
+function DivineFollowupsTask({ params, onComplete }: TaskComponentProps) {
+    const prompts =
+        Array.isArray(params?.prompts) && params.prompts.length > 0
+            ? (params.prompts as Array<string>)
+            : DEFAULT_DIVINE_PROMPTS
+    const stepSec = typeof params?.stepDurationSec === "number" ? params.stepDurationSec : 8
+    const [index, setIndex] = useState(0)
+    const [remaining, setRemaining] = useState(stepSec)
+    const isLast = index >= prompts.length - 1
+
+    const advance = useCallback(() => {
+        if (index >= prompts.length - 1) {
+            onComplete({})
+        } else {
+            setIndex((i) => i + 1)
+            setRemaining(stepSec)
+        }
+    }, [index, prompts.length, stepSec, onComplete])
+
+    useEffect(() => {
+        const timer = window.setInterval(() => {
+            setRemaining((prev) => {
+                if (prev <= 1) {
+                    advance()
+                    return stepSec
+                }
+                return prev - 1
+            })
+        }, 1_000)
+        return () => window.clearInterval(timer)
+    }, [advance, stepSec])
+
+    return (
+        <div className="task-panel">
+            <h1 className="tasks-eyebrow">
+                {isLast ? "One last thing" : `Prompt ${index + 1} of ${prompts.length}`}
+            </h1>
+            <p className="tasks-title" key={index}>
+                {prompts[index]}
+            </p>
+            <p className="char-hint" aria-live="polite">
+                {remaining}s
+            </p>
+            <button type="button" className="task-primary-button" onClick={() => advance()}>
+                {isLast ? "Finish" : "Next"}
+            </button>
+        </div>
+    )
+}
+
+function CustomTask({ params, onComplete }: TaskComponentProps) {
+    const title = typeof params?.title === "string" && params.title.length > 0 ? params.title : "Pause"
+    const body =
+        typeof params?.body === "string" && params.body.length > 0
+            ? params.body
+            : "Take a moment to ground yourself before you continue."
+    const confirmLabel =
+        typeof params?.confirmLabel === "string" && params.confirmLabel.length > 0
+            ? params.confirmLabel
+            : "I'm ready"
+
+    return (
+        <div className="task-panel">
+            <p className="tasks-title">{title}</p>
+            <p className="task-body">{body}</p>
+            <button type="button" className="task-primary-button" onClick={() => onComplete({})}>
+                {confirmLabel}
+            </button>
+        </div>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Task suggestion overlay (post-task)
+// ---------------------------------------------------------------------------
+
+function TaskSuggestions({
+    tasks,
+    canChooseLater,
+    onTask,
+    onChooseLater
+}: {
+    tasks: Array<Task>
+    canChooseLater: boolean
+    onTask: (task: Task) => void
+    onChooseLater: () => void
+}) {
+    return (
+        <div className="tasks-panel">
+            <h1 className="tasks-eyebrow">Now.</h1>
+            <p className="tasks-title">What did you intend to do?</p>
+
+            <ul className="tasks-list">
+                {tasks.map((task) => (
+                    <li key={task.id} className="task-item">
+                        <button type="button" className="task-button" onClick={() => onTask(task)}>
+                            <span className="task-title">{task.title}</span>
+                            <span className="task-cta">Do this</span>
+                        </button>
+                    </li>
+                ))}
+            </ul>
+
+            <button
+                type="button"
+                className={`choose-later ${canChooseLater ? "visible" : ""}`}
+                onClick={onChooseLater}
+                tabIndex={canChooseLater ? 0 : -1}
             >
-                <div className="breathe-wrap">
-                    <div className="breathe-circle" />
-                    <svg
-                        className="breathe-ring"
-                        viewBox="0 0 120 120"
-                        role="img"
-                        aria-label="Breathing exercise progress"
-                    >
-                        <title>Breathing exercise progress</title>
-                        <circle
-                            className="breathe-ring-bg"
-                            cx="60"
-                            cy="60"
-                            r={ringRadius}
-                        />
-                        <circle
-                            className="breathe-ring-fg"
-                            cx="60"
-                            cy="60"
-                            r={ringRadius}
-                            strokeDasharray={ringCircumference}
-                            strokeDashoffset={ringOffset}
-                            transform="rotate(-90 60 60)"
-                        />
-                    </svg>
-                    <div className="count" aria-live="assertive">
-                        {remaining}
-                    </div>
-                </div>
-
-                <p className="breath-hint" key={String(breathIn)}>
-                    {breathIn ? "Breathe in…" : "Breathe out…"}
-                </p>
-                <p className="breath-sub">Give your attention a moment to land.</p>
-            </div>
-
-            <div className={`stage ${phase === "tasks" ? "stage-visible" : ""}`}>
-                <div className="tasks-panel">
-                    <h1 className="tasks-eyebrow">Now.</h1>
-                    <p className="tasks-title">What did you intend to do?</p>
-
-                    <ul className="tasks-list">
-                        {tasks.map((task) => (
-                            <li key={task.id} className="task-item">
-                                <button
-                                    type="button"
-                                    className="task-button"
-                                    onClick={() => handleTask(task)}
-                                >
-                                    <span className="task-title">{task.title}</span>
-                                    <span className="task-cta">Do this</span>
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-
-                    <button
-                        type="button"
-                        className={`choose-later ${canChooseLater ? "visible" : ""}`}
-                        onClick={handleChooseLater}
-                        tabIndex={canChooseLater ? 0 : -1}
-                    >
-                        I’ll choose later
-                    </button>
-                </div>
-            </div>
+                I’ll choose later
+            </button>
         </div>
     )
 }
@@ -316,6 +610,43 @@ const OVERLAY_STYLE = `
 .stage-visible {
     opacity: 1;
     transform: scale(1);
+    pointer-events: auto;
+}
+
+.buddha-video {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    border: none;
+    padding: 0;
+    margin: 0;
+    -webkit-appearance: none;
+    display: block;
+}
+
+.buddha-video-player {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gesture-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    padding: 16px 28px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    backdrop-filter: blur(6px);
 }
 
 .breathe-wrap {
@@ -385,7 +716,8 @@ const OVERLAY_STYLE = `
     color: #94a3b8;
 }
 
-.tasks-panel {
+.tasks-panel,
+.task-panel {
     max-width: 560px;
     width: 90vw;
     padding: 32px;
@@ -405,8 +737,70 @@ const OVERLAY_STYLE = `
     margin: 0 0 28px;
     font-size: 32px;
     font-weight: 600;
-    line-height: 1.25;
+    line-height: 1.3;
     color: #ffffff;
+}
+
+.task-body {
+    margin: 0 0 28px;
+    font-size: 17px;
+    line-height: 1.6;
+    color: #cbd5e1;
+}
+
+.realization-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.7);
+    color: #f8fafc;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.5;
+    resize: none;
+}
+
+.realization-textarea:focus {
+    outline: none;
+    border-color: #60a5fa;
+}
+
+.char-hint {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    color: #94a3b8;
+}
+
+.task-primary-button,
+.task-control-next {
+    margin-top: 8px;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 34px;
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    color: #ffffff;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: transform 150ms ease, opacity 150ms ease, box-shadow 150ms ease;
+    box-shadow: 0 8px 30px rgba(37, 99, 235, 0.45);
+}
+
+.task-primary-button:hover:not(:disabled),
+.task-control-next:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 36px rgba(37, 99, 235, 0.55);
+}
+
+.task-primary-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 .tasks-list {

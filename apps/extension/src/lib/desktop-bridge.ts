@@ -2,7 +2,6 @@ import type {
     BrowserType,
     DesktopCommand,
     VinayaEvent,
-    Rule,
     ServerMessage
 } from "@vinaya/behavior-core"
 import { DEFAULT_BREATHING_SEC } from "~background/enforcement"
@@ -345,8 +344,8 @@ class DesktopBridgeClient {
             return
         }
 
-        if (message.type === "ack" && Array.isArray(message.ids)) {
-            markSynced(message.ids as Array<string>).catch(() => { })
+        if ("type" in message && message.type === "ack") {
+            if (Array.isArray(message.ids)) markSynced(message.ids)
             return
         }
 
@@ -385,11 +384,12 @@ class DesktopBridgeClient {
             case "show_intervention":
                 import("~background/index")
                     .then(({ tracker }) => {
-                        tracker.forceIntervention(
-                            command.tabId,
-                            command.durationSec ?? DEFAULT_BREATHING_SEC,
-                            command.tasks ?? []
-                        )
+                        tracker.forceIntervention(command.tabId, {
+                            taskType: command.taskType ?? "inhale_exhale",
+                            params: command.params,
+                            durationSec: command.durationSec ?? DEFAULT_BREATHING_SEC,
+                            tasks: command.tasks ?? []
+                        })
                     })
                     .catch(() => { })
                 break

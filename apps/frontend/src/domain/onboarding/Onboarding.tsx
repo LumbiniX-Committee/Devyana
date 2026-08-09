@@ -1,10 +1,13 @@
+import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
 	Brain,
 	Briefcase,
+	CircleUser,
 	Compass,
 	GraduationCap,
+	Heart,
 	HeartHandshake,
 	Laptop,
 	Moon,
@@ -14,11 +17,12 @@ import {
 	Stethoscope,
 	Wind,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AuroraBackground } from "./components/AuroraBackground";
 import { LoadingLogo } from "./components/LoadingLogo";
+import { AgeStep } from "./components/onboarding/AgeStep";
 import { ChoiceStep } from "./components/onboarding/ChoiceStep";
 import { DoneStep } from "./components/onboarding/DoneStep";
 import { GreetingStep } from "./components/onboarding/GreetingStep";
@@ -26,23 +30,33 @@ import { MessageStep } from "./components/onboarding/MessageStep";
 import { NameStep } from "./components/onboarding/NameStep";
 import { StepNav } from "./components/onboarding/StepNav";
 import { TopBar } from "./components/TopBar";
+import { toast } from "./components/ui/sonner";
 import "./onboarding.css";
 
-// Flow: 0 loading → 1 name → 2 greeting → 3 profession → 4 goal → 5 message → 6 done
+// Flow: 0 loading → 1 name → 2 gender → 3 greeting → 4 profession → 5 age
+//       → 6 goal → 7 message → 8 done
 const STEP = {
 	LOADING: 0,
 	NAME: 1,
-	GREETING: 2,
-	ROLE: 3,
-	GOAL: 4,
-	MESSAGE: 5,
-	DONE: 6,
+	GENDER: 2,
+	GREETING: 3,
+	ROLE: 4,
+	AGE: 5,
+	GOAL: 6,
+	MESSAGE: 7,
+	DONE: 8,
 } as const;
 
 type StepValue = (typeof STEP)[keyof typeof STEP];
 
-// The three interactive questions drive the progress dots + Back control.
-const FORM_STEPS: StepValue[] = [STEP.NAME, STEP.ROLE, STEP.GOAL];
+// The interactive questions drive the progress dots + Back control.
+const FORM_STEPS: StepValue[] = [
+	STEP.NAME,
+	STEP.GENDER,
+	STEP.ROLE,
+	STEP.AGE,
+	STEP.GOAL,
+];
 
 interface AuroraSpec {
 	intensity: number;
@@ -53,8 +67,10 @@ interface AuroraSpec {
 const AURORA: Record<StepValue, AuroraSpec> = {
 	[STEP.LOADING]: { intensity: 0, flood: 0 },
 	[STEP.NAME]: { intensity: 0.16, flood: 0 },
+	[STEP.GENDER]: { intensity: 0.3, flood: 0 },
 	[STEP.GREETING]: { intensity: 0.05, flood: 0 },
 	[STEP.ROLE]: { intensity: 0.5, flood: 0 },
+	[STEP.AGE]: { intensity: 0.6, flood: 0 },
 	[STEP.GOAL]: { intensity: 0.72, flood: 0 },
 	[STEP.MESSAGE]: { intensity: 0.9, flood: 0 },
 	[STEP.DONE]: { intensity: 1, flood: 1 },
@@ -65,6 +81,12 @@ interface RoleOption {
 	label: string;
 	Icon: LucideIcon;
 }
+
+const GENDER_OPTIONS: RoleOption[] = [
+	{ id: "male", label: "Male", Icon: Heart },
+	{ id: "female", label: "Female", Icon: CircleUser },
+	{ id: "other", label: "Other", Icon: HeartHandshake },
+];
 
 const ROLE_OPTIONS: RoleOption[] = [
 	{ id: "doctor", label: "Doctor / Healthcare", Icon: Stethoscope },
@@ -84,6 +106,14 @@ const GOAL_OPTIONS: RoleOption[] = [
 	{ id: "other", label: "Something else", Icon: Compass },
 ];
 
+interface CompleteOnboardingPayload {
+	id: string;
+	gender: string;
+	age: number;
+	profession: string;
+	goals: string[];
+}
+
 export default function Onboarding() {
 	const navigate = useNavigate();
 	const [step, setStep] = useState<StepValue>(STEP.LOADING);
@@ -91,6 +121,21 @@ export default function Onboarding() {
 		(typeof window !== "undefined" && localStorage.getItem("vinaya_name")) ||
 			"friend",
 	);
+	const [gender, setGender] = useState(
+		(typeof window !== "undefined" && localStorage.getItem("vinaya_gender")) ||
+			"",
+	);
+	const [age, setAge] = useState(0);
+	const [role, setRole] = useState(
+		(typeof window !== "undefined" && localStorage.getItem("vinaya_role")) ||
+			"",
+	);
+	const [goal, setGoal] = useState(
+		(typeof window !== "undefined" && localStorage.getItem("vinaya_goal")) ||
+			"",
+	);
+	const [submitting, setSubmitting] = useState(false);
+	const submittedOnce = useRef(false);
 
 	// Scope the aurora design system to this experience (covers portal surfaces).
 	useEffect(() => {
@@ -110,23 +155,73 @@ export default function Onboarding() {
 	const handleName = useCallback((value: string) => {
 		localStorage.setItem("vinaya_name", value);
 		setName(value);
+		setStep(STEP.GENDER);
+	}, []);
+
+	const handleGender = useCallback((value: string) => {
+		const normalized = value.toLowerCase();
+		localStorage.setItem("vinaya_gender", normalized);
+		setGender(normalized);
 		setStep(STEP.GREETING);
 	}, []);
 
-	const handleRole = useCallback((role: string) => {
-		localStorage.setItem("vinaya_role", role);
+	const handleRole = useCallback((value: string) => {
+		localStorage.setItem("vinaya_role", value);
+		setRole(value);
+		setStep(STEP.AGE);
+	}, []);
+
+	const handleAge = useCallback((value: number) => {
+		localStorage.setItem("vinaya_age", String(value));
+		setAge(value);
 		setStep(STEP.GOAL);
 	}, []);
 
-	const handleGoal = useCallback((goal: string) => {
-		localStorage.setItem("vinaya_goal", goal);
+	const handleGoal = useCallback((value: string) => {
+		localStorage.setItem("vinaya_goal", value);
+		setGoal(value);
 		setStep(STEP.MESSAGE);
 	}, []);
 
-	const handleStart = useCallback(() => {
-		localStorage.setItem("vinaya_onboarded", "true");
-		navigate("/app");
-	}, [navigate]);
+	const handleStart = useCallback(async () => {
+		if (submittedOnce.current) return;
+		submittedOnce.current = true;
+
+		const profession = role || localStorage.getItem("vinaya_role") || "";
+		const intention = goal || localStorage.getItem("vinaya_goal") || "";
+
+		if (!gender || age < 1 || !profession || !intention) {
+			submittedOnce.current = false;
+			setSubmitting(false);
+			toast.error(
+				"A few details are still missing. Please go back and complete them.",
+			);
+			return;
+		}
+
+		setSubmitting(true);
+
+		const payload: CompleteOnboardingPayload = {
+			id: crypto.randomUUID(),
+			gender,
+			age,
+			profession,
+			goals: [intention],
+		};
+
+		try {
+			await invoke("complete_onboarding", { profile: payload });
+			localStorage.setItem("vinaya_onboarded", "true");
+			localStorage.setItem("onboarding_completed", "true");
+			localStorage.setItem("user_profile_id", payload.id);
+			navigate("/app");
+		} catch (error) {
+			submittedOnce.current = false;
+			setSubmitting(false);
+			console.error("Onboarding failed:", error);
+			toast.error("Could not save your profile. Please try again.");
+		}
+	}, [age, gender, goal, navigate, role]);
 
 	// Back navigation across the interactive questions.
 	const formIndex = FORM_STEPS.indexOf(step);
@@ -163,6 +258,15 @@ export default function Onboarding() {
 						{step === STEP.NAME && (
 							<NameStep key="name" initialName={name} onSubmit={handleName} />
 						)}
+						{step === STEP.GENDER && (
+							<ChoiceStep
+								key="gender"
+								title="How do you identify?"
+								subtitle="This helps Vinaya personalise your practice."
+								options={GENDER_OPTIONS}
+								onSelect={handleGender}
+							/>
+						)}
 						{step === STEP.GREETING && (
 							<GreetingStep key="greeting" name={name} />
 						)}
@@ -175,6 +279,9 @@ export default function Onboarding() {
 								onSelect={handleRole}
 							/>
 						)}
+						{step === STEP.AGE && (
+							<AgeStep key="age" initialAge={age} onSubmit={handleAge} />
+						)}
 						{step === STEP.GOAL && (
 							<ChoiceStep
 								key="goal"
@@ -186,7 +293,7 @@ export default function Onboarding() {
 						)}
 						{step === STEP.MESSAGE && <MessageStep key="message" />}
 						{step === STEP.DONE && (
-							<DoneStep key="done" onStart={handleStart} />
+							<DoneStep key="done" loading={submitting} onStart={handleStart} />
 						)}
 					</AnimatePresence>
 				</div>

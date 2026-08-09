@@ -25,6 +25,7 @@ import type {
     InterventionActiveMessage,
     InterventionCompletedMessage,
     InterventionMessage,
+    InterventionTaskType,
     LiveRule,
     PageMeta,
     RequestMetaMessage,
@@ -228,7 +229,12 @@ class VinayaTracker {
                 const systemEvent: SystemEvent = {
                     event: "system_event",
                     name: "intervention_completed",
-                    data: { tabId, completed }
+                    data: {
+                        tabId,
+                        completed,
+                        taskType: payload.taskType,
+                        response: payload.response
+                    }
                 }
                 void desktopBridge.send(systemEvent)
             }
@@ -396,6 +402,8 @@ class VinayaTracker {
                 const message: InterventionMessage = {
                     type: "show_intervention",
                     tabId,
+                    taskType: decision.taskType,
+                    params: decision.params,
                     durationSec: decision.durationSec,
                     tasks: decision.tasks
                 }
@@ -819,10 +827,16 @@ class VinayaTracker {
      */
     forceIntervention(
         tabId: number,
-        durationSec: number,
-        tasks: Array<Task>
+        options: {
+            taskType: InterventionTaskType
+            params?: Record<string, unknown>
+            durationSec: number
+            tasks: Array<Task>
+        }
     ): void {
         if (!tabId) return
+
+        const { taskType, params, durationSec, tasks } = options
 
         enforcement.beginIntervention(
             tabId,
@@ -834,6 +848,8 @@ class VinayaTracker {
         const message: InterventionMessage = {
             type: "show_intervention",
             tabId,
+            taskType,
+            params,
             durationSec,
             tasks
         }

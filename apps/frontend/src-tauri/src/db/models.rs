@@ -37,6 +37,16 @@ pub struct UserProfile {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CompleteOnboardingInput {
+    pub id: String,
+    pub gender: String,
+    pub age: i64,
+    pub profession: String,
+    pub goals: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserProfileInput {
     pub gender: String,
     pub age: i64,

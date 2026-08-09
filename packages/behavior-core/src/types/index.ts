@@ -1,3 +1,5 @@
+import type { InterventionTaskType } from "../events";
+
 export type MetaField = string
 
 export type ParsedUrl = {
@@ -37,6 +39,16 @@ export type InterventionSpec = {
     type: InterventionKind;
     durationSec: number;
     cooldownMs: number;
+    /**
+     * Which actionable task the intervention overlay should run after the
+     * Buddha's Palm video. Falls back to `inhale_exhale` when absent.
+     */
+    taskType?: InterventionTaskType;
+    /**
+     * Task-specific parameters forwarded to the overlay (e.g. a realization
+     * question, divine prompt list, or custom panel copy).
+     */
+    params?: Record<string, unknown>;
     /**
      * Optional usage budget for `on_limit_exceeded`, compared against the
      * rule's accumulated session time. When absent the enforcement engine

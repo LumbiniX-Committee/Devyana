@@ -1,4 +1,4 @@
-import type { InterventionSpec, LiveRule, ParsedUrl, Task } from "@vinaya/behavior-core";
+import type { InterventionSpec, InterventionTaskType, LiveRule, ParsedUrl, Task } from "@vinaya/behavior-core";
 import {
     loadFocusMode,
     loadInterventionCooldowns,
@@ -14,6 +14,8 @@ export type EnforcementDecision =
     | {
         action: "intervention";
         type: "breathing";
+        taskType: InterventionTaskType;
+        params?: Record<string, unknown>;
         durationSec: number;
         tasks: Array<Task>;
         ruleId: string;
@@ -185,6 +187,8 @@ export class EnforcementEngine {
         return {
             action: "intervention",
             type: "breathing",
+            taskType: intervention?.taskType ?? "inhale_exhale",
+            params: intervention?.params ?? {},
             durationSec: intervention?.durationSec ?? DEFAULT_BREATHING_SEC,
             tasks: await this.buildTasks(),
             ruleId: target.id,

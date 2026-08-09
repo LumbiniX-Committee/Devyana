@@ -1,8 +1,8 @@
 use sqlx::{Row, SqlitePool};
 
 use super::models::{
-    BehaviorGraph, Constraint, NewSession, Notification, PendingCommand, Session, UserProfile,
-    UserProfileInput,
+    BehaviorGraph, CompleteOnboardingInput, Constraint, NewSession, Notification, PendingCommand,
+    Session, UserProfile, UserProfileInput,
 };
 
 fn now_string() -> String {
@@ -170,6 +170,26 @@ pub async fn get_profile(pool: &SqlitePool) -> Result<Option<UserProfile>, Strin
     .map_err(|e| format!("select profile: {e}"))
 }
 
+/// True when at least one row exists in `user_profile`. Used by the startup
+/// guard to decide whether onboarding should be skipped.
+pub async fn has_profile(pool: &SqlitePool) -> Result<bool, String> {
+    let row = sqlx::query("SELECT COUNT(*) AS c FROM user_profile")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("count profiles: {e}"))?;
+
+    let count = row.try_get::<i64, _>("c").unwrap_or(0);
+    Ok(count > 0)
+}
+
+pub async fn get_profile_by_id(pool: &SqlitePool, id: &str) -> Result<Option<UserProfile>, String> {
+    sqlx::query_as::<_, UserProfile>("SELECT * FROM user_profile WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| format!("select profile by id: {e}"))
+}
+
 pub async fn save_profile(pool: &SqlitePool, input: &UserProfileInput) -> Result<(), String> {
     let id = uuid::Uuid::new_v4().to_string();
     let goals = serde_json::to_string(&input.goals).map_err(|e| e.to_string())?;
@@ -186,6 +206,25 @@ pub async fn save_profile(pool: &SqlitePool, input: &UserProfileInput) -> Result
     .execute(pool)
     .await
     .map_err(|e| format!("insert profile: {e}"))?;
+
+    Ok(())
+}
+
+pub async fn upsert_profile(pool: &SqlitePool, input: &CompleteOnboardingInput) -> Result<(), String> {
+    let goals = serde_json::to_string(&input.goals).map_err(|e| e.to_string())?;
+
+    sqlx::query(
+        "INSERT OR REPLACE INTO user_profile (id, gender, age, profession, goals, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+    )
+    .bind(&input.id)
+    .bind(&input.gender)
+    .bind(input.age)
+    .bind(&input.profession)
+    .bind(&goals)
+    .execute(pool)
+    .await
+    .map_err(|e| format!("upsert profile: {e}"))?;
 
     Ok(())
 }

@@ -5,10 +5,11 @@ const ease: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 interface DoneStepProps {
 	onStart: () => void;
+	loading?: boolean;
 }
 
 /** Closing "All set" celebration + primary CTA. */
-export const DoneStep = ({ onStart }: DoneStepProps) => {
+export const DoneStep = ({ onStart, loading = false }: DoneStepProps) => {
 	return (
 		<div className="flex min-h-screen w-full flex-col items-center justify-center px-6 text-center">
 			<motion.div
@@ -38,12 +39,13 @@ export const DoneStep = ({ onStart }: DoneStepProps) => {
 				initial={{ opacity: 0, y: 16 }}
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 0.6, ease, delay: 0.45 }}
-				whileHover={{ y: -2 }}
-				whileTap={{ scale: 0.97 }}
+				whileHover={loading ? undefined : { y: -2 }}
+				whileTap={loading ? undefined : { scale: 0.97 }}
 				onClick={onStart}
-				className="glass-pill mt-10 inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold text-foreground"
+				disabled={loading}
+				className="glass-pill mt-10 inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-60"
 			>
-				Enter Vinaya
+				{loading ? "Entering Vinaya…" : "Enter Vinaya"}
 				<ArrowRight className="h-4 w-4" strokeWidth={2} />
 			</motion.button>
 		</div>
