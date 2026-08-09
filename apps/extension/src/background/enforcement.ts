@@ -27,7 +27,7 @@ export const DEFAULT_BREATHING_SEC = 30
 export const DEFAULT_COOLDOWN_MS = 5 * 60_000
 export const DEFAULT_USAGE_LIMIT_MS = 15 * 60_000
 
-export const VIYANA_DASHBOARD_URL = chrome.runtime.getURL("tabs/setup.html")
+export const VINAYA_DASHBOARD_URL = chrome.runtime.getURL("tabs/setup.html")
 
 /** Sentinel rule id used for interventions triggered by the desktop. */
 export const DESKTOP_DRIVEN_RULE_ID = "__desktop_driven__"
@@ -201,9 +201,9 @@ export class EnforcementEngine {
         if (tasks.length) return tasks
         return [
             {
-                id: "viyana-dashboard",
+                id: "vinaya-dashboard",
                 title: "Open your task dashboard",
-                url: VIYANA_DASHBOARD_URL
+                url: VINAYA_DASHBOARD_URL
             }
         ]
     }

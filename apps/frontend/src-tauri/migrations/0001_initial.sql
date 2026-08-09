@@ -1,4 +1,4 @@
--- Viyana behavioral runtime: initial schema.
+-- Vinaya behavioral runtime: initial schema.
 
 -- User profile
 CREATE TABLE user_profile (

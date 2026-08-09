@@ -7,9 +7,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        serif: ['Playfair Display', 'serif'],
-        mono: ['Space Mono', 'monospace'],
+        sans: ['Poppins', 'sans-serif'],
+        serif: ['Poppins', 'sans-serif'],
+        mono: ['Poppins', 'sans-serif'],
       },
       colors: {
         'brand-gold': '#d4af37',

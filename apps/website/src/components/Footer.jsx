@@ -51,13 +51,13 @@ export default function Footer() {
                 {/* BIG FOOTER TEXT */}
                 <div className="w-full overflow-hidden border-t border-white/10 pt-10">
                     <h1 className="font-serif text-[clamp(4rem,18vw,20rem)] leading-none text-center tracking-tighter text-white opacity-90 select-none">
-                        LUMBINIX
+                        VINAYA
                     </h1>
                 </div>
 
                 {/* BOTTOM UTILS */}
                 <div className="flex flex-col md:flex-row justify-between items-center mt-10 text-[10px] text-white/40 font-sans uppercase tracking-widest">
-                    <p>© 2026 Lumbinix — What if Buddha was born in 2026?</p>
+                    <p>© 2026 Vinaya — Freedom from distraction.</p>
                     <div className="flex gap-8 mt-4 md:mt-0">
                         <span className="cursor-pointer hover:text-white">Privacy Policy</span>
                         <span className="cursor-pointer hover:text-white">Terms</span>

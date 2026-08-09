@@ -13,7 +13,7 @@ export interface NegativeWorkItem {
 	description: string;
 }
 
-const FONT = '"Georgia", "Times New Roman", serif';
+const FONT = '"Poppins", sans-serif';
 
 const BLUSH = "#F6E3DF";
 const RED_BROWN = "#B85C4A";
@@ -93,12 +93,15 @@ export default function NegativeWorksSection({
 	return (
 		<section className={cn("flex w-full flex-col gap-3", className)}>
 			<div className="flex items-baseline justify-between">
-				<h2 className="buddha-heading text-base" style={{ color: "#5C4B3A" }}>
+				<h2
+					className="buddha-heading text-base"
+					style={{ color: "var(--ink)" }}
+				>
 					Negative Works
 				</h2>
 				<span
 					className="text-xs"
-					style={{ color: "#85705B", fontFamily: FONT }}
+					style={{ color: "var(--muted-ink)", fontFamily: FONT }}
 				>
 					Unwholesome time, seen kindly · this week
 				</span>
@@ -111,7 +114,7 @@ export default function NegativeWorksSection({
 			) : loading && items.length === 0 ? (
 				<div
 					className="flex items-center gap-2 rounded-2xl border px-4 py-6 text-sm"
-					style={{ color: "#85705B", fontFamily: FONT }}
+					style={{ color: "var(--muted-ink)", fontFamily: FONT }}
 				>
 					<Loader2 className="h-4 w-4 animate-spin" />
 					Reflecting on the week…
@@ -119,7 +122,11 @@ export default function NegativeWorksSection({
 			) : items.length === 0 ? (
 				<div
 					className="rounded-2xl border px-4 py-6 text-center text-sm"
-					style={{ color: "#85705B", fontFamily: FONT, fontStyle: "italic" }}
+					style={{
+						color: "var(--muted-ink)",
+						fontFamily: FONT,
+						fontStyle: "italic",
+					}}
 				>
 					A clear week — no unwholesome activity to correct. May it continue.
 				</div>

@@ -96,7 +96,7 @@ function BreathingTimer() {
 							opacity: 0.5,
 							size: 160,
 						}),
-						backgroundColor: "#FDF8F2",
+						backgroundColor: "var(--surface)",
 						boxShadow: "0 18px 44px rgba(60, 40, 20, 0.14)",
 					}}
 					animate={{
@@ -111,12 +111,15 @@ function BreathingTimer() {
 					transition={{ duration: phase === "hold" ? 2 : 4, ease: "easeInOut" }}
 				>
 					<div className="text-center">
-						<p className="buddha-heading text-4xl" style={{ color: "#5C4B3A" }}>
+						<p
+							className="buddha-heading text-4xl"
+							style={{ color: "var(--ink)" }}
+						>
 							{seconds}
 						</p>
 						<p
 							className="text-[11px] uppercase tracking-widest"
-							style={{ color: "#85705B" }}
+							style={{ color: "var(--muted-ink)" }}
 						>
 							{seconds === 1 ? "second" : "seconds"}
 						</p>
@@ -126,7 +129,10 @@ function BreathingTimer() {
 
 			<p
 				className="text-sm"
-				style={{ color: running ? "#B85C4A" : "#85705B", fontStyle: "italic" }}
+				style={{
+					color: running ? "#B85C4A" : "var(--muted-ink)",
+					fontStyle: "italic",
+				}}
 			>
 				{running ? PHASE_HINT[phase] : "Take a calm, 30-second pause."}
 			</p>
@@ -193,7 +199,7 @@ export default function NegativeWorksDetail() {
 	return (
 		<div
 			className="relative min-h-screen w-full overflow-hidden"
-			style={{ backgroundColor: "#FBF7F0" }}
+			style={{ backgroundColor: "var(--page)" }}
 		>
 			{/* Mandala watermark */}
 			<div
@@ -214,7 +220,7 @@ export default function NegativeWorksDetail() {
 					type="button"
 					onClick={() => navigate("/dashboard")}
 					className="inline-flex items-center gap-1.5 self-start rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/5"
-					style={{ borderColor: "#E0D7C6", color: "#5C4B3A" }}
+					style={{ borderColor: "#E0D7C6", color: "var(--ink)" }}
 				>
 					<ArrowLeft className="h-3.5 w-3.5" />
 					Back to dashboard
@@ -239,7 +245,7 @@ export default function NegativeWorksDetail() {
 					<div>
 						<h1
 							className="buddha-heading text-2xl"
-							style={{ color: "#5C4B3A" }}
+							style={{ color: "var(--ink)" }}
 						>
 							{loading
 								? "Gathering wisdom…"
@@ -247,7 +253,7 @@ export default function NegativeWorksDetail() {
 									? advice.title
 									: "A mindful return"}
 						</h1>
-						<p className="mt-1 text-sm" style={{ color: "#85705B" }}>
+						<p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
 							Correction for {labelFor(category)}
 						</p>
 					</div>
@@ -257,7 +263,7 @@ export default function NegativeWorksDetail() {
 					<div
 						className="rounded-2xl border px-5 py-6 text-center text-sm text-red-800/80"
 						style={{
-							backgroundColor: "#FDF8F2",
+							backgroundColor: "var(--surface)",
 							borderColor: "rgba(184, 92, 74, 0.3)",
 						}}
 					>
@@ -267,9 +273,9 @@ export default function NegativeWorksDetail() {
 					<div
 						className="flex items-center justify-center gap-2 rounded-2xl border px-5 py-10 text-sm"
 						style={{
-							backgroundColor: "#FDF8F2",
+							backgroundColor: "var(--surface)",
 							borderColor: "rgba(92, 75, 58, 0.14)",
-							color: "#85705B",
+							color: "var(--muted-ink)",
 						}}
 					>
 						<Loader2 className="h-4 w-4 animate-spin" />
@@ -286,7 +292,7 @@ export default function NegativeWorksDetail() {
 									transition={{ delay: index * 0.12, duration: 0.4 }}
 									className="flex items-start gap-3 rounded-2xl border px-4 py-3"
 									style={{
-										backgroundColor: "#FDF8F2",
+										backgroundColor: "var(--surface)",
 										borderColor: "rgba(92, 75, 58, 0.14)",
 										boxShadow: "0 6px 18px rgba(60, 40, 20, 0.05)",
 									}}
@@ -299,7 +305,7 @@ export default function NegativeWorksDetail() {
 									</span>
 									<p
 										className="text-sm leading-relaxed"
-										style={{ color: "#5C4B3A" }}
+										style={{ color: "var(--ink)" }}
 									>
 										{step}
 									</p>
@@ -310,14 +316,14 @@ export default function NegativeWorksDetail() {
 						<div
 							className="mt-2 rounded-3xl border p-6"
 							style={{
-								backgroundColor: "#FDF8F2",
+								backgroundColor: "var(--surface)",
 								borderColor: "rgba(139, 154, 110, 0.4)",
 								boxShadow: "0 12px 30px rgba(60, 40, 20, 0.08)",
 							}}
 						>
 							<h2
 								className="buddha-heading mb-1 text-center text-sm"
-								style={{ color: "#5C4B3A" }}
+								style={{ color: "var(--ink)" }}
 							>
 								A breathing space
 							</h2>
@@ -326,7 +332,7 @@ export default function NegativeWorksDetail() {
 
 						<p
 							className="pt-2 text-center text-xs"
-							style={{ color: "#85705B", fontStyle: "italic" }}
+							style={{ color: "var(--muted-ink)", fontStyle: "italic" }}
 						>
 							Progress is not the absence of falling, but the willingness to
 							begin again.

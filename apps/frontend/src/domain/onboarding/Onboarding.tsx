@@ -2,20 +2,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
-	Brain,
 	Briefcase,
 	CircleUser,
-	Compass,
 	GraduationCap,
 	Heart,
 	HeartHandshake,
 	Laptop,
-	Moon,
 	Palette,
 	PenLine,
-	Sparkles,
 	Stethoscope,
-	Wind,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -28,13 +23,14 @@ import { DoneStep } from "./components/onboarding/DoneStep";
 import { GreetingStep } from "./components/onboarding/GreetingStep";
 import { MessageStep } from "./components/onboarding/MessageStep";
 import { NameStep } from "./components/onboarding/NameStep";
+import { PrivacyPolicyModal } from "./components/onboarding/PrivacyPolicyModal";
 import { StepNav } from "./components/onboarding/StepNav";
 import { TopBar } from "./components/TopBar";
 import { toast } from "./components/ui/sonner";
 import "./onboarding.css";
 
 // Flow: 0 loading → 1 name → 2 gender → 3 greeting → 4 profession → 5 age
-//       → 6 goal → 7 message → 8 done
+//       → 6 message → 7 done
 const STEP = {
 	LOADING: 0,
 	NAME: 1,
@@ -42,21 +38,14 @@ const STEP = {
 	GREETING: 3,
 	ROLE: 4,
 	AGE: 5,
-	GOAL: 6,
-	MESSAGE: 7,
-	DONE: 8,
+	MESSAGE: 6,
+	DONE: 7,
 } as const;
 
 type StepValue = (typeof STEP)[keyof typeof STEP];
 
 // The interactive questions drive the progress dots + Back control.
-const FORM_STEPS: StepValue[] = [
-	STEP.NAME,
-	STEP.GENDER,
-	STEP.ROLE,
-	STEP.AGE,
-	STEP.GOAL,
-];
+const FORM_STEPS: StepValue[] = [STEP.NAME, STEP.GENDER, STEP.ROLE, STEP.AGE];
 
 interface AuroraSpec {
 	intensity: number;
@@ -71,7 +60,6 @@ const AURORA: Record<StepValue, AuroraSpec> = {
 	[STEP.GREETING]: { intensity: 0.05, flood: 0 },
 	[STEP.ROLE]: { intensity: 0.5, flood: 0 },
 	[STEP.AGE]: { intensity: 0.6, flood: 0 },
-	[STEP.GOAL]: { intensity: 0.72, flood: 0 },
 	[STEP.MESSAGE]: { intensity: 0.9, flood: 0 },
 	[STEP.DONE]: { intensity: 1, flood: 1 },
 };
@@ -95,15 +83,6 @@ const ROLE_OPTIONS: RoleOption[] = [
 	{ id: "business", label: "Business / Entrepreneur", Icon: Briefcase },
 	{ id: "artist", label: "Artist / Creative", Icon: Palette },
 	{ id: "other", label: "Other", Icon: PenLine },
-];
-
-const GOAL_OPTIONS: RoleOption[] = [
-	{ id: "calm", label: "Reduce stress & anxiety", Icon: Wind },
-	{ id: "sleep", label: "Sleep more peacefully", Icon: Moon },
-	{ id: "focus", label: "Focus & clarity", Icon: Brain },
-	{ id: "compassion", label: "Cultivate compassion", Icon: HeartHandshake },
-	{ id: "growth", label: "Spiritual growth", Icon: Sparkles },
-	{ id: "other", label: "Something else", Icon: Compass },
 ];
 
 interface CompleteOnboardingPayload {
@@ -130,10 +109,8 @@ export default function Onboarding() {
 		(typeof window !== "undefined" && localStorage.getItem("vinaya_role")) ||
 			"",
 	);
-	const [goal, setGoal] = useState(
-		(typeof window !== "undefined" && localStorage.getItem("vinaya_goal")) ||
-			"",
-	);
+	const [privacyAccepted, setPrivacyAccepted] = useState(false);
+	const [policyOpen, setPolicyOpen] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const submittedOnce = useRef(false);
 
@@ -174,12 +151,6 @@ export default function Onboarding() {
 	const handleAge = useCallback((value: number) => {
 		localStorage.setItem("vinaya_age", String(value));
 		setAge(value);
-		setStep(STEP.GOAL);
-	}, []);
-
-	const handleGoal = useCallback((value: string) => {
-		localStorage.setItem("vinaya_goal", value);
-		setGoal(value);
 		setStep(STEP.MESSAGE);
 	}, []);
 
@@ -188,14 +159,20 @@ export default function Onboarding() {
 		submittedOnce.current = true;
 
 		const profession = role || localStorage.getItem("vinaya_role") || "";
-		const intention = goal || localStorage.getItem("vinaya_goal") || "";
 
-		if (!gender || age < 1 || !profession || !intention) {
+		if (!gender || age < 1 || !profession) {
 			submittedOnce.current = false;
 			setSubmitting(false);
 			toast.error(
 				"A few details are still missing. Please go back and complete them.",
 			);
+			return;
+		}
+
+		if (!privacyAccepted) {
+			submittedOnce.current = false;
+			setSubmitting(false);
+			toast.error("Please accept the privacy policy to continue.");
 			return;
 		}
 
@@ -206,7 +183,7 @@ export default function Onboarding() {
 			gender,
 			age,
 			profession,
-			goals: [intention],
+			goals: ["calm"],
 		};
 
 		try {
@@ -215,7 +192,12 @@ export default function Onboarding() {
 			localStorage.setItem("onboarding_completed", "true");
 			localStorage.setItem("user_profile_id", payload.id);
 			// Verification breadcrumbs: profile persisted + onboarding done.
-			console.log("[onboarding] profile saved", payload.id, payload.gender, payload.age);
+			console.log(
+				"[onboarding] profile saved",
+				payload.id,
+				payload.gender,
+				payload.age,
+			);
 			navigate("/app");
 		} catch (error) {
 			submittedOnce.current = false;
@@ -223,7 +205,7 @@ export default function Onboarding() {
 			console.error("Onboarding failed:", error);
 			toast.error("Could not save your profile. Please try again.");
 		}
-	}, [age, gender, goal, navigate, role]);
+	}, [age, gender, navigate, privacyAccepted, role]);
 
 	// Back navigation across the interactive questions.
 	const formIndex = FORM_STEPS.indexOf(step);
@@ -284,18 +266,16 @@ export default function Onboarding() {
 						{step === STEP.AGE && (
 							<AgeStep key="age" initialAge={age} onSubmit={handleAge} />
 						)}
-						{step === STEP.GOAL && (
-							<ChoiceStep
-								key="goal"
-								title="What brings you here?"
-								subtitle="Set an intention for your practice."
-								options={GOAL_OPTIONS}
-								onSelect={handleGoal}
-							/>
-						)}
 						{step === STEP.MESSAGE && <MessageStep key="message" />}
 						{step === STEP.DONE && (
-							<DoneStep key="done" loading={submitting} onStart={handleStart} />
+							<DoneStep
+								key="done"
+								loading={submitting}
+								accepted={privacyAccepted}
+								onToggle={() => setPrivacyAccepted(!privacyAccepted)}
+								onOpenPolicy={() => setPolicyOpen(true)}
+								onStart={handleStart}
+							/>
 						)}
 					</AnimatePresence>
 				</div>
@@ -310,6 +290,15 @@ export default function Onboarding() {
 						/>
 					)}
 				</AnimatePresence>
+
+				<PrivacyPolicyModal
+					open={policyOpen}
+					onClose={() => setPolicyOpen(false)}
+					onAccept={() => {
+						setPolicyOpen(false);
+						setPrivacyAccepted(true);
+					}}
+				/>
 			</div>
 		</MotionConfig>
 	);

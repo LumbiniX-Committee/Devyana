@@ -1,6 +1,7 @@
 pub mod analytics;
 pub mod constraints;
 pub mod dashboard;
+pub mod data;
 pub mod debug;
 pub mod desktop_tracking;
 pub mod learning;

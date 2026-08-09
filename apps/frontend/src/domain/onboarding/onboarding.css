@@ -1,8 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap");
 
 /*
   EMERGENT ONBOARDING — Design System
-  Theme: deep-space dark with an electric-blue aurora that intensifies through the flow.
+  Theme: warm ivory light with a sunlit golden-yellow aurora that intensifies through the flow.
 
   Scoped via `data-onboarding-theme` on <body> (set while these pages are mounted)
   so both the pages and Radix/portal'd surfaces (dropdown, toaster) resolve the
@@ -10,51 +10,51 @@
 */
 
 [data-onboarding-theme] {
-	/* Core surfaces */
-	--background: hsl(0 0% 3%); /* near-black space */
-	--foreground: hsl(0 0% 100%); /* pure white text */
+	/* Core surfaces — warm ivory, sunlit */
+	--background: hsl(43 52% 94%); /* soft rice-paper white */
+	--foreground: hsl(28 26% 28%); /* warm ink */
 
-	--card: hsl(214 60% 22%);
-	--card-foreground: hsl(0 0% 100%);
-	--popover: hsl(220 40% 8%);
-	--popover-foreground: hsl(0 0% 100%);
+	--card: hsl(45 55% 98%);
+	--card-foreground: hsl(28 26% 28%);
+	--popover: hsl(45 55% 98%);
+	--popover-foreground: hsl(28 26% 28%);
 
-	/* Brand — electric aurora blue */
-	--primary: hsl(214 100% 56%);
-	--primary-foreground: hsl(0 0% 100%);
+	/* Brand — sunlit golden yellow */
+	--primary: hsl(43 100% 57%);
+	--primary-foreground: hsl(38 70% 10%);
 
-	--secondary: hsl(220 30% 14%);
-	--secondary-foreground: hsl(0 0% 100%);
+	--secondary: hsl(43 35% 90%);
+	--secondary-foreground: hsl(28 26% 28%);
 
-	--muted: hsl(220 20% 12%);
-	--muted-foreground: hsl(210 16% 72%);
+	--muted: hsl(42 30% 93%);
+	--muted-foreground: hsl(31 16% 40%);
 
-	--accent: hsl(200 100% 70%);
-	--accent-foreground: hsl(220 60% 10%);
+	--accent: hsl(43 95% 60%);
+	--accent-foreground: hsl(38 70% 10%);
 
-	--destructive: hsl(0 72% 55%);
+	--destructive: hsl(0 70% 55%);
 	--destructive-foreground: hsl(0 0% 100%);
 
-	--border: hsl(0 0% 100% / 0.12); /* soft white, composited */
-	--input: hsl(220 20% 16%);
-	--ring: hsl(214 100% 62%);
+	--border: hsl(35 38% 55% / 0.4); /* soft warm tan, composited */
+	--input: hsl(42 30% 88%);
+	--ring: hsl(43 100% 55%);
 
 	--radius: 0.9rem;
 
 	color: var(--foreground);
 	background: var(--background);
 	font-family:
-		"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		"Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
 
 [data-onboarding-theme] * {
-	border-color: hsl(0 0% 100% / 0.12);
+	border-color: hsl(35 38% 55% / 0.4);
 }
 
 [data-onboarding-theme] ::selection {
-	background: hsl(214 100% 56% / 0.4);
+	background: hsl(43 100% 57% / 0.35);
 	color: var(--foreground);
 }
 
@@ -62,43 +62,43 @@
 	background: var(--background);
 	color: var(--foreground);
 	font-family:
-		"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		"Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
 
 /* Wordmark font */
 .wordmark {
-	font-family: "Comfortaa", "Inter", sans-serif;
+	font-family: "Poppins", sans-serif;
 	font-weight: 700;
 	letter-spacing: -0.02em;
 }
 
-/* Glossy metallic "v" for the loader */
+/* Glossy golden "v" for the loader */
 .loader-e {
-	font-family: "Comfortaa", sans-serif;
+	font-family: "Poppins", sans-serif;
 	font-weight: 700;
 	background: linear-gradient(
 		150deg,
-		hsl(0 0% 100%) 0%,
-		hsl(214 20% 66%) 42%,
-		hsl(0 0% 98%) 56%,
-		hsl(220 14% 48%) 100%
+		hsl(48 90% 82%) 0%,
+		hsl(43 100% 57%) 42%,
+		hsl(50 95% 88%) 56%,
+		hsl(36 85% 38%) 100%
 	);
 	-webkit-background-clip: text;
 	background-clip: text;
 	color: transparent;
-	filter: drop-shadow(0 6px 18px hsl(0 0% 100% / 0.18));
+	filter: drop-shadow(0 6px 18px hsl(43 100% 50% / 0.35));
 }
 
-/* Frosted-glass option card (role step) */
+/* Frosted-light option card (role step) */
 .glass-card {
 	background: linear-gradient(
 		180deg,
-		hsl(0 0% 100% / 0.1),
-		hsl(0 0% 100% / 0.03)
+		hsl(0 0% 100% / 0.72),
+		hsl(44 45% 93% / 0.5)
 	);
-	border: 1px solid hsl(0 0% 100% / 0.16);
+	border: 1px solid hsl(35 40% 70% / 0.55);
 	backdrop-filter: blur(10px);
 	-webkit-backdrop-filter: blur(10px);
 	transition:
@@ -110,17 +110,17 @@
 .glass-card:hover {
 	background: linear-gradient(
 		180deg,
-		hsl(0 0% 100% / 0.2),
-		hsl(0 0% 100% / 0.08)
+		hsl(0 0% 100% / 0.95),
+		hsl(44 45% 92% / 0.75)
 	);
-	border-color: hsl(0 0% 100% / 0.4);
-	box-shadow: 0 10px 40px -12px hsl(214 100% 56% / 0.55);
+	border-color: hsl(40 90% 45% / 0.5);
+	box-shadow: 0 10px 40px -12px hsl(43 100% 50% / 0.4);
 }
 
 /* Glass pill button */
 .glass-pill {
-	background: hsl(0 0% 100% / 0.12);
-	border: 1px solid hsl(0 0% 100% / 0.28);
+	background: hsl(0 0% 100% / 0.6);
+	border: 1px solid hsl(35 40% 70% / 0.6);
 	backdrop-filter: blur(10px);
 	-webkit-backdrop-filter: blur(10px);
 	transition:
@@ -130,9 +130,9 @@
 		box-shadow 0.28s ease;
 }
 .glass-pill:hover {
-	background: hsl(0 0% 100% / 0.22);
-	border-color: hsl(0 0% 100% / 0.5);
-	box-shadow: 0 12px 44px -10px hsl(0 0% 100% / 0.35);
+	background: hsl(0 0% 100% / 0.92);
+	border-color: hsl(40 90% 45% / 0.55);
+	box-shadow: 0 12px 44px -10px hsl(43 100% 50% / 0.3);
 }
 
 .icon-btn {

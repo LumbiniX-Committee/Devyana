@@ -1,0 +1,84 @@
+.vinaya-setup {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    box-sizing: border-box;
+    background: linear-gradient(160deg, #fbf7f0 0%, #f5edde 100%);
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.vinaya-setup-card {
+    max-width: 480px;
+    width: 100%;
+    padding: 40px 44px;
+    border: 1px solid #e0d7c6;
+    border-radius: 16px;
+    background: #fdf8f2;
+    box-shadow: 0 20px 50px -24px rgba(92, 75, 58, 0.35), 0 1px 2px rgba(212, 168, 83, 0.35);
+    text-align: center;
+    color: #5c4b3a;
+}
+
+.vinaya-setup-mark {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+}
+
+.vinaya-setup-petal {
+    position: absolute;
+    inset: 0;
+    width: 22px;
+    height: 34px;
+    border-radius: 999px 999px 4px 4px;
+    background: linear-gradient(180deg, #d4a853 0%, #c79a2e 100%);
+    top: 15px;
+    left: 21px;
+    transform-origin: 50% 100%;
+}
+
+.vinaya-setup-petal-2 {
+    transform: rotate(120deg) translate(0, -15px);
+}
+
+.vinaya-setup-petal-3 {
+    transform: rotate(240deg) translate(0, -15px);
+}
+
+.vinaya-setup-title {
+    margin: 0 0 12px;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #3e2a24;
+}
+
+.vinaya-setup-body {
+    margin: 0 0 28px;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #85705b;
+}
+
+.vinaya-setup-button {
+    border: 1px solid #d4a853;
+    border-radius: 999px;
+    padding: 12px 34px;
+    background: linear-gradient(135deg, #d4a853 0%, #c79a2e 100%);
+    color: #ffffff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+    box-shadow: 0 8px 30px rgba(212, 168, 83, 0.45);
+}
+
+.vinaya-setup-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 36px rgba(212, 168, 83, 0.55);
+}

@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import NegativeCards from "../components/negative/negative-cards/NegativeCards";
 import { lotusBackground } from "../lib/lotus";
 
-const INK = "#5C4B3A";
-const MUTED = "#85705B";
+const INK = "var(--ink)";
+const MUTED = "var(--muted-ink)";
 
 export default function NegativeWorksPage() {
 	useEffect(() => {
@@ -15,7 +15,7 @@ export default function NegativeWorksPage() {
 		<div
 			className="relative min-h-screen w-full"
 			style={{
-				backgroundColor: "#FBF7F0",
+				backgroundColor: "var(--page)",
 				backgroundImage: lotusBackground({
 					stroke: "#C17A5A",
 					opacity: 0.07,
@@ -35,7 +35,7 @@ export default function NegativeWorksPage() {
 									opacity: 0.85,
 									size: 44,
 								}),
-								backgroundColor: "#FDF8F2",
+								backgroundColor: "var(--surface)",
 								border: "1px solid rgba(184, 92, 74, 0.18)",
 							}}
 							aria-hidden
@@ -74,7 +74,7 @@ export default function NegativeWorksPage() {
 
 				<footer
 					className="pt-2 pb-4 text-center text-xs"
-					style={{ color: MUTED, fontFamily: '"Georgia", serif' }}
+					style={{ color: MUTED, fontFamily: '"Poppins", sans-serif' }}
 				>
 					&ldquo;Just as a snake sheds its skin, we must shed our past over and
 					over again.&rdquo; — the Buddha

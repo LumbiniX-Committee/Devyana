@@ -2,23 +2,26 @@ import dayjs from "dayjs";
 import { lazy, Suspense, useEffect } from "react";
 
 import { DesktopTrackingStatusChip } from "../components/DesktopTracking";
-import NegativeWorksSection from "../components/negative/NegativeWorksSection";
 import ProductivityGraph from "../components/ProductivityGraph";
 import TaskPanel from "../components/TaskPanel";
 import { lotusBackground } from "../lib/lotus";
 
-const BehaviorTrendChart = lazy(() => import("../components/charts/BehaviorTrendChart"));
-const HourlyProductivityChart = lazy(() => import("../components/charts/HourlyProductivityChart"));
+const BehaviorTrendChart = lazy(
+	() => import("../components/charts/BehaviorTrendChart"),
+);
+const HourlyProductivityChart = lazy(
+	() => import("../components/charts/HourlyProductivityChart"),
+);
 
-const INK = "#5C4B3A";
-const MUTED = "#85705B";
+const INK = "var(--ink)";
+const MUTED = "var(--muted-ink)";
 
 function ChartFallback() {
 	return (
 		<div
 			className="flex h-72 flex-col items-center justify-center gap-3 rounded-3xl border text-sm"
 			style={{
-				backgroundColor: "#FDF8F2",
+				backgroundColor: "var(--surface)",
 				borderColor: "rgba(92, 75, 58, 0.16)",
 				color: MUTED,
 			}}
@@ -33,7 +36,9 @@ function ChartFallback() {
 					}),
 				}}
 			/>
-			<p style={{ fontFamily: '"Georgia", serif' }}>Sitting with the data…</p>
+			<p style={{ fontFamily: '"Poppins", sans-serif' }}>
+				Sitting with the data…
+			</p>
 		</div>
 	);
 }
@@ -45,13 +50,14 @@ export default function DashboardContent() {
 	}, []);
 
 	const name =
-		(typeof window !== "undefined" && localStorage.getItem("vinaya_name")) || "friend";
+		(typeof window !== "undefined" && localStorage.getItem("vinaya_name")) ||
+		"friend";
 
 	return (
 		<div
 			className="relative min-h-screen w-full"
 			style={{
-				backgroundColor: "#FBF7F0",
+				backgroundColor: "var(--page)",
 				backgroundImage: lotusBackground({
 					stroke: "#C17A5A",
 					opacity: 0.07,
@@ -71,7 +77,7 @@ export default function DashboardContent() {
 									opacity: 0.85,
 									size: 44,
 								}),
-								backgroundColor: "#FDF8F2",
+								backgroundColor: "var(--surface)",
 								border: "1px solid rgba(92, 75, 58, 0.18)",
 							}}
 							aria-hidden
@@ -90,7 +96,10 @@ export default function DashboardContent() {
 					</div>
 					<span className="flex items-center gap-2">
 						<DesktopTrackingStatusChip />
-						<span className="text-xs" style={{ color: MUTED, fontFamily: '"Georgia", serif' }}>
+						<span
+							className="text-xs"
+							style={{ color: MUTED, fontFamily: '"Poppins", sans-serif' }}
+						>
 							{dayjs().format("dddd, D MMMM YYYY")}
 						</span>
 					</span>
@@ -110,7 +119,10 @@ export default function DashboardContent() {
 							<h2 className="buddha-heading text-base" style={{ color: INK }}>
 								Productivity Garden
 							</h2>
-							<span className="text-xs" style={{ color: MUTED, fontFamily: '"Georgia", serif' }}>
+							<span
+								className="text-xs"
+								style={{ color: MUTED, fontFamily: '"Poppins", sans-serif' }}
+							>
 								Your focus, day by day
 							</span>
 						</div>
@@ -122,7 +134,10 @@ export default function DashboardContent() {
 							<h2 className="buddha-heading text-base" style={{ color: INK }}>
 								Tasks
 							</h2>
-							<span className="text-xs" style={{ color: MUTED, fontFamily: '"Georgia", serif' }}>
+							<span
+								className="text-xs"
+								style={{ color: MUTED, fontFamily: '"Poppins", sans-serif' }}
+							>
 								Small vows, kept one by one
 							</span>
 						</div>
@@ -131,7 +146,7 @@ export default function DashboardContent() {
 
 					<footer
 						className="pt-2 pb-4 text-center text-xs"
-						style={{ color: MUTED, fontFamily: '"Georgia", serif' }}
+						style={{ color: MUTED, fontFamily: '"Poppins", sans-serif' }}
 					>
 						&ldquo;Be a lamp unto yourself.&rdquo; — the Buddha
 					</footer>

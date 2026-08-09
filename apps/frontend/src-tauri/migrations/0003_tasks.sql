@@ -1,4 +1,4 @@
--- Viyana behavioral runtime: task system with AI recommendations, recurrence
+-- Vinaya behavioral runtime: task system with AI recommendations, recurrence
 -- and extension-driven auto-completion.
 
 CREATE TABLE IF NOT EXISTS tasks (

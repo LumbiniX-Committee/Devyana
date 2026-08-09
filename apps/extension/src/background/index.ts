@@ -36,7 +36,7 @@ import type {
     SystemEvent,
     Task
 } from "@vinaya/behavior-core";
-import { DESKTOP_DRIVEN_RULE_ID, enforcement, VIYANA_DASHBOARD_URL } from "~background/enforcement";
+import { DESKTOP_DRIVEN_RULE_ID, enforcement, VINAYA_DASHBOARD_URL } from "~background/enforcement";
 
 /**
  * How long we wait before committing a `focus_lost`, and how recently a real
@@ -985,9 +985,9 @@ class VinayaTracker {
 
         return [
             {
-                id: "viyana-dashboard",
+                id: "vinaya-dashboard",
                 title: "Open your task dashboard",
-                url: VIYANA_DASHBOARD_URL
+                url: VINAYA_DASHBOARD_URL
             }
         ]
     }

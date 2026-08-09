@@ -49,10 +49,11 @@ export default function HeroCanvas({ scrollTrackRef }) {
         // TEXT ANIMATIONS
         // Sync these to the timeline (0 to 1 progress of the container)
 
-        // Scene 1: EXPLORE PARADISE (0% - 25%)
-        tl.fromTo(textRef1.current,
-            { opacity: 0, scale: 0.9, y: 50 },
-            { opacity: 1, scale: 1, y: 0, ease: 'power2.out', duration: 0.1 }, 0
+        // Scene 1: THE MISSION (0% - 25%)
+        // Visible on load, no scrolling required. Animate in, then scroll away.
+        gsap.fromTo(textRef1.current,
+            { opacity: 0, scale: 0.92, y: 30 },
+            { opacity: 1, scale: 1, y: 0, ease: 'power2.out', duration: 1, delay: 0.2 }
         );
         tl.to(textRef1.current,
             { opacity: 0, scale: 1.1, y: -50, ease: 'power2.in', duration: 0.05 }, 0.2
@@ -117,19 +118,19 @@ export default function HeroCanvas({ scrollTrackRef }) {
             />
 
             {/* Text Layer */}
-            <div className="absolute inset-0 pointer-events-none z-10">
+            <div className="absolute inset-0 pointer-events-none z-10 mb-40">
                 {/* Text 1: Centered */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <h1 ref={textRef1} className="font-serif text-[clamp(3rem,7vw,6rem)] text-white text-center leading-[0.95] tracking-tighter opacity-0 drop-shadow-2xl">
-                        WHAT IF THE<br />BUDDHA WAS<br />BORN IN 2026?
-                    </h1>
+<h1 ref={textRef1} className="font-serif text-[clamp(3rem,7vw,6rem)] text-white text-center leading-[0.95] tracking-tighter drop-shadow-2xl">
+                            DROP YOUR<br />DISTRACTIONS.<br />
+                        </h1>
                 </div>
 
                 {/* Text 2: Bottom Left */}
                 <div className="absolute inset-0 flex items-end justify-start pb-32 pl-10 md:pl-20">
                     <div>
                         <h1 ref={textRef2} className="font-serif text-[clamp(2.5rem,5vw,4rem)] text-white leading-none opacity-0 drop-shadow-2xl text-left">
-                            Your habits.<br />His eightfold<br />path.
+                            Your habits.<br />His Path<br />.
                         </h1>
                     </div>
                 </div>

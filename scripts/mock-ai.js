@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Viyana mock Intelligence Layer.
+ * Vinaya mock Intelligence Layer.
  *
  * Runs a tiny HTTP server that stands in for the three "AI" endpoints the
  * desktop app calls:
@@ -68,7 +68,7 @@ function buildGraphUpdate(sessions) {
   }
 
   return {
-    model: "viyana-mock-v1",
+    model: "vinaya-mock-v1",
     at: new Date().toISOString(),
     nodeId: "mock-node",
     summary: {
@@ -113,7 +113,7 @@ async function route(req, res) {
 
   if (method === "GET" && (path === "/" || path === "/health")) {
     res.writeHead(200, { "Content-Type": "text/plain" })
-    res.end("Viyana mock AI layer is up. POST /classify, /behavior/update, /behavior/init, /suggest\n")
+    res.end("Vinaya mock AI layer is up. POST /classify, /behavior/update, /behavior/init, /suggest\n")
     return
   }
 
@@ -183,6 +183,6 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Viyana mock AI layer listening on http://127.0.0.1:${PORT}`)
+  console.log(`Vinaya mock AI layer listening on http://127.0.0.1:${PORT}`)
   console.log("Endpoints: POST /classify, /behavior/update, /behavior/init, /suggest")
 })

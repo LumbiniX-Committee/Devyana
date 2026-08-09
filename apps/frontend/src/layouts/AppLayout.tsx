@@ -8,7 +8,7 @@ import {
 import { useMemo } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
-const FONT = '"Georgia", "Times New Roman", serif';
+const FONT = '"Poppins", sans-serif';
 
 interface NavItem {
 	path: string;
@@ -67,7 +67,7 @@ export default function AppLayout() {
 	return (
 		<div
 			className="relative min-h-screen w-full"
-			style={{ backgroundColor: "#FBF7F0" }}
+			style={{ backgroundColor: "var(--page)" }}
 		>
 			<div
 				style={{
@@ -97,18 +97,22 @@ export default function AppLayout() {
 			</div>
 
 			<nav
-				className="fixed bottom-0 left-1/2 z-50 -translate-x-1/2 w-full max-w-5xl mb-4"
-				style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+				className="fixed bottom-0 left-1/2 z-50 w-full max-w-5xl -translate-x-1/2 px-4 pb-5"
+				style={{
+					paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))",
+				}}
 				aria-label="Main navigation"
 			>
 				<div
-					className="flex items-center justify-between gap-1 rounded-t-3xl border px-3 py-2"
+					className="flex items-center justify-between gap-1 rounded-3xl border px-2 py-2"
 					style={{
-						backgroundColor: "rgba(251, 247, 240, 0.95)",
-						borderColor: "#E0D7C6",
-						borderBottomWidth: "0",
-						backdropFilter: "blur(8px)",
-						boxShadow: "0 -4px 24px rgba(60, 40, 20, 0.08)",
+						backgroundColor:
+							"color-mix(in srgb, var(--surface) 92%, transparent)",
+						borderColor: "var(--hairline)",
+						backdropFilter: "blur(14px)",
+						WebkitBackdropFilter: "blur(14px)",
+						boxShadow:
+							"0 10px 30px rgba(60, 40, 20, 0.12), 0 2px 8px rgba(60, 40, 20, 0.06)",
 					}}
 				>
 					{NAV_ITEMS.map((item) => {
@@ -117,48 +121,44 @@ export default function AppLayout() {
 								? currentPath === "/app"
 								: currentPath === item.path ||
 									currentPath.startsWith(`${item.path}/`);
-						const iconColor = isActive ? "#8B9A6E" : "#B0A090";
 
 						return (
 							<button
 								key={item.path}
 								type="button"
 								onClick={() => (window.location.href = item.path)}
-								className="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors"
-								style={{
-									color: iconColor,
-									backgroundColor: isActive
-										? "rgba(139, 154, 110, 0.1)"
-										: "transparent",
-								}}
+								className="flex flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-1.5 transition-colors"
 								aria-current={isActive ? "page" : undefined}
 								aria-label={item.label}
 							>
-								<div className="relative flex h-6 w-6 items-center justify-center">
+								<span
+									className="relative flex h-8 w-12 items-center justify-center rounded-full transition-colors"
+									style={{
+										backgroundColor: isActive ? "var(--sage)" : "transparent",
+									}}
+								>
 									{item.lotus ? (
-										<LotusIcon size={22} strokeWidth={2.2} color={iconColor} />
+										<LotusIcon
+											size={20}
+											strokeWidth={2.1}
+											color={isActive ? "#FFFFFF" : "var(--nav-muted)"}
+										/>
 									) : (
 										<item.icon
-											size={22}
-											strokeWidth={2.2}
-											color={iconColor}
+											size={20}
+											strokeWidth={2.1}
+											color={isActive ? "#FFFFFF" : "var(--nav-muted)"}
 											aria-hidden="true"
 										/>
 									)}
-									{isActive && (
-										<span
-											className="absolute -top-1 left-1/2 -translate-x-1/2 h-1.5 w-1.5 rounded-full"
-											style={{
-												backgroundColor: "#8B9A6E",
-												boxShadow: "0 0 6px #8B9A6E, 0 0 12px #8B9A6E",
-											}}
-											aria-hidden="true"
-										/>
-									)}
-								</div>
+								</span>
 								<span
-									className="text-[10px] leading-none"
-									style={{ fontFamily: FONT, fontWeight: isActive ? 600 : 400 }}
+									className="text-[0.6rem] leading-none tracking-wide uppercase"
+									style={{
+										fontFamily: FONT,
+										color: isActive ? "var(--ink)" : "var(--muted-ink)",
+										fontWeight: isActive ? 600 : 500,
+									}}
 								>
 									{item.label}
 								</span>

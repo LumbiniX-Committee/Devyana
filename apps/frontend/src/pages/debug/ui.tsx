@@ -18,7 +18,7 @@ export function DebugShell({
 				<header className="flex items-center justify-between gap-3">
 					<div>
 						<p className="text-xs uppercase tracking-widest text-emerald-400/80">
-							Viyana verification suite
+							Vinaya verification suite
 						</p>
 						<h1 className="text-2xl font-semibold">{title}</h1>
 						{subtitle ? (

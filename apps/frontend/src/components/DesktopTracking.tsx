@@ -1,11 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { Switch } from "./Switch";
 
-const INK = "#5C4B3A";
-const MUTED = "#85705B";
-const SAGE = "#8B9A6E";
-const CLAY = "#B85C4A";
+const INK = "var(--ink)";
+const MUTED = "var(--muted-ink)";
+const SAGE = "var(--sage)";
+const CLAY = "var(--clay)";
 
 /**
  * Mirrors the backend's `desktop_tracking_status` toggle: resolves the current
@@ -75,7 +76,7 @@ export function DesktopTrackingStatusChip() {
 				backgroundColor: active
 					? "rgba(139, 154, 110, 0.12)"
 					: "rgba(184, 92, 74, 0.10)",
-				color: active ? "#5F7A4E" : "#A04B3C",
+				color: active ? "var(--sage)" : "var(--clay)",
 			}}
 			title={
 				active
@@ -101,8 +102,8 @@ export function DesktopTrackingToggle() {
 		<div
 			className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
 			style={{
-				borderColor: "rgba(92, 75, 58, 0.18)",
-				backgroundColor: "#FDF8F2",
+				borderColor: "var(--border-soft)",
+				backgroundColor: "var(--row)",
 			}}
 		>
 			<div className="min-w-0">
@@ -113,28 +114,12 @@ export function DesktopTrackingToggle() {
 					Track time in native apps so they appear in sessions and insights.
 				</p>
 			</div>
-			<button
-				type="button"
-				role="switch"
-				aria-checked={checked}
-				aria-label="Toggle desktop application tracking"
+			<Switch
+				checked={checked}
+				onCheckedChange={() => void toggle()}
 				disabled={enabled === null || busy}
-				onClick={() => void toggle()}
-				className="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
-				style={{
-					borderColor: checked
-						? "rgba(139, 154, 110, 0.6)"
-						: "rgba(92, 75, 58, 0.25)",
-					backgroundColor: checked ? SAGE : "#E7DECE",
-				}}
-			>
-				<span
-					className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
-					style={{
-						transform: checked ? "translateX(1.25rem)" : "translateX(2px)",
-					}}
-				/>
-			</button>
+				aria-label="Toggle desktop application tracking"
+			/>
 		</div>
 	);
 }

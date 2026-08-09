@@ -487,7 +487,7 @@ mod tests {
 
     #[tokio::test]
     async fn seeding_drives_analytics() {
-        let dir = std::env::temp_dir().join(format!("viyana-seed-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("vinaya-seed-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let pool = crate::db::pool::create_pool(&dir.join("test.db"))
             .await

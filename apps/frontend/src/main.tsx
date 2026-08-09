@@ -3,7 +3,12 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./Global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import {
+	createBrowserRouter,
+	Navigate,
+	RouterProvider,
+} from "react-router-dom";
 import Analytics from "./domain/Analytics";
 import Assistant from "./domain/Assistant";
 import Calendar from "./domain/Calendar";
@@ -16,16 +21,16 @@ import Safeguards from "./domain/Safeguards";
 import Sessions from "./domain/Sessions";
 import System from "./domain/System";
 import Tasks from "./domain/Tasks";
-import NegativeWorksDetail from "./pages/NegativeWorksDetail";
-import Health from "./pages/Health";
-import DebugHome from "./pages/debug/DebugHome";
-import DebugDb from "./pages/debug/DebugDb";
-import DebugProfile from "./pages/debug/DebugProfile";
-
 import AppLayout from "./layouts/AppLayout";
+import { applyFontScale, applyTheme, usePreferences } from "./lib/preferences";
 import DashboardContent from "./pages/DashboardContent";
-import NegativeWorksPage from "./pages/NegativeWorksPage";
+import DebugDb from "./pages/debug/DebugDb";
+import DebugHome from "./pages/debug/DebugHome";
+import DebugProfile from "./pages/debug/DebugProfile";
+import Health from "./pages/Health";
 import LearningPathway from "./pages/LearningPathway";
+import NegativeWorksDetail from "./pages/NegativeWorksDetail";
+import NegativeWorksPage from "./pages/NegativeWorksPage";
 import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient({
@@ -36,6 +41,34 @@ const queryClient = new QueryClient({
 		},
 	},
 });
+
+/** Subscribes to the persisted preferences and keeps the DOM (theme class,
+ * root font size) in sync wherever they change. */
+function PreferencesSync() {
+	const theme = usePreferences((state) => state.theme);
+	const fontScale = usePreferences((state) => state.fontScale);
+
+	useEffect(() => {
+		applyTheme(theme);
+	}, [theme]);
+
+	useEffect(() => {
+		applyFontScale(fontScale);
+	}, [fontScale]);
+
+	useEffect(() => {
+		const media = window.matchMedia("(prefers-color-scheme: dark)");
+		const onChange = () => {
+			if (usePreferences.getState().theme === "system") {
+				applyTheme("system");
+			}
+		};
+		media.addEventListener("change", onChange);
+		return () => media.removeEventListener("change", onChange);
+	}, []);
+
+	return null;
+}
 
 const router = createBrowserRouter([
 	{
@@ -128,6 +161,7 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
+		<PreferencesSync />
 		<QueryClientProvider client={queryClient}>
 			<RouterProvider router={router} />
 			<Toaster position="top-center" theme="dark" />

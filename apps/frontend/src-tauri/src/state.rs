@@ -96,7 +96,7 @@ impl AppState {
         let settings_path = data_dir.join("settings.json");
         let settings = AppSettings::load(&settings_path);
 
-        let db_path = data_dir.join("viyana.db");
+        let db_path = data_dir.join("vinaya.db");
         let db = crate::db::pool::create_pool(&db_path)
             .await
             .map_err(std::io::Error::other)?;

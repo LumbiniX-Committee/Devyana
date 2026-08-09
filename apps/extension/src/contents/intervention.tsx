@@ -115,10 +115,10 @@ function mountIntervention(message: InterventionMessage): boolean {
     // Programmatic injection is used as a fallback for tabs that predate an
     // extension reload. Avoid a second shadow root if an earlier script copy
     // already mounted the intervention.
-    if (mounted || document.querySelector("[data-viyana-intervention='true']")) return true
+    if (mounted || document.querySelector("[data-vinaya-intervention='true']")) return true
 
     const host = document.createElement("div")
-    host.dataset.viyanaIntervention = "true"
+    host.dataset.vinayaIntervention = "true"
 
     const shadow = host.attachShadow({ mode: "open" })
 
@@ -186,18 +186,6 @@ interface TaskComponentProps {
 
 const CHOOSE_LATER_DELAY_MS = 10_000
 
-/**
- * A challenge counts as fulfilled (rather than skipped) when the user either
- * finishes it on their own or the countdown simply elapses. Fulfilled
- * challenges dismiss the overlay and reveal the website immediately instead
- * of routing through the post-task suggestion panel.
- */
-function isChallengeRedeemed(response: unknown): boolean {
-    if (!response || typeof response !== "object") return false
-    const record = response as Record<string, unknown>
-    return Boolean(record.challenge) && record.completed === true
-}
-
 function InterventionOverlay({
     taskType,
     params,
@@ -229,14 +217,10 @@ function InterventionOverlay({
     const handleTaskComplete = (response?: unknown) => {
         setTaskResult({ taskType, response })
 
-        // A fulfilled challenge is a self-contained pause: once the user has
-        // had (or taken) their time, release the overlay so the page shows.
-        if (taskType === "challenge" && isChallengeRedeemed(response)) {
-            unmountIntervention()
-            sendCompleted(tabId, true, taskType, response)
-            return
-        }
-
+        // Every intervention, including a fulfilled challenge, routes through
+        // the task suggestion panel so the user can pick up where they left
+        // off. "I'll choose later" (revealed after CHOOSE_LATER_DELAY_MS) is
+        // always there as an escape hatch to simply dismiss the overlay.
         setPhase("tasks")
     }
 
@@ -244,7 +228,7 @@ function InterventionOverlay({
         unmountIntervention()
         sendCompleted(tabId, true, taskResult?.taskType, taskResult?.response)
         if (task.url) {
-            window.location.href = task.url
+            window.open(task.url, "_blank", "noopener")
         } else {
             window.open(DASHBOARD_URL, "_blank")
         }
@@ -402,7 +386,7 @@ function BreathingTask({ params, durationSec, onComplete }: TaskComponentProps) 
         typeof params?.durationSec === "number" ? params.durationSec : durationSec ?? 30
     )
     const [remaining, setRemaining] = useState(totalSec)
-    const [breathIn, setBreathIn] = useState(true)
+    const [breathPhase, setBreathPhase] = useState<"in" | "hold" | "out">("in")
 
     useEffect(() => {
         const timer = window.setInterval(() => {
@@ -418,10 +402,22 @@ function BreathingTask({ params, durationSec, onComplete }: TaskComponentProps) 
     }, [onComplete])
 
     useEffect(() => {
-        const breath = window.setInterval(() => {
-            setBreathIn((value) => !value)
-        }, 4_000)
-        return () => window.clearInterval(breath)
+        const phases: ReadonlyArray<{ phase: "in" | "hold" | "out"; ms: number }> = [
+            { phase: "in", ms: 4_000 },
+            { phase: "hold", ms: 2_000 },
+            { phase: "out", ms: 4_000 }
+        ]
+        let index = 0
+        let timeout: number
+        const schedule = () => {
+            timeout = window.setTimeout(() => {
+                index = (index + 1) % phases.length
+                setBreathPhase(phases[index].phase)
+                schedule()
+            }, phases[index].ms)
+        }
+        schedule()
+        return () => window.clearTimeout(timeout)
     }, [])
 
     const progress = totalSec <= 0 ? 0 : remaining / totalSec
@@ -436,11 +432,14 @@ function BreathingTask({ params, durationSec, onComplete }: TaskComponentProps) 
                     <video
                         className="breathe-video"
                         src={inhaleExhaleVideo}
-                        autoPlay
                         muted
-                        loop
                         playsInline
                         aria-hidden="true"
+                        onLoadedMetadata={(event) => {
+                            const video = event.currentTarget
+                            video.currentTime = 0.1
+                            video.pause()
+                        }}
                     />
                 </div>
                 <svg
@@ -462,8 +461,12 @@ function BreathingTask({ params, durationSec, onComplete }: TaskComponentProps) 
                     />
                 </svg>
             </div>
-            <p className="breath-hint" key={String(breathIn)}>
-                {breathIn ? "Breathe in…" : "Breathe out…"}
+            <p className="breath-hint" key={breathPhase}>
+                {breathPhase === "in"
+                    ? "Breathe in…"
+                    : breathPhase === "hold"
+                      ? "Hold"
+                      : "Breathe out…"}
             </p>
             <p className="breath-sub">Give your attention a moment to land.</p>
         </>
@@ -1261,6 +1264,7 @@ function TaskSuggestions({
 // ---------------------------------------------------------------------------
 
 const OVERLAY_STYLE = `
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
 :host(div) {
     all: initial;
     display: block;
@@ -1268,6 +1272,7 @@ const OVERLAY_STYLE = `
     inset: 0;
     z-index: 2147483647;
     pointer-events: auto;
+    background: #fbf7f0;
 }
 
 .intervention {
@@ -1277,9 +1282,9 @@ const OVERLAY_STYLE = `
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(160deg, #0f172a 0%, #1e293b 55%, #1e3a5f 100%);
-    color: #e2e8f0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: linear-gradient(160deg, #fbf7f0 0%, #f5edd9 100%);
+    color: #5c4b3a;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
     text-align: center;
@@ -1308,7 +1313,7 @@ const OVERLAY_STYLE = `
 .buddha-video {
     position: absolute;
     inset: 0;
-    background: #000;
+    background: #fbf7f0;
     border: none;
     padding: 0;
     margin: 0;
@@ -1332,9 +1337,9 @@ const OVERLAY_STYLE = `
     transform: translate(-50%, -50%);
     padding: 16px 28px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    color: #ffffff;
+    background: rgba(212, 168, 83, 0.16);
+    border: 1px solid rgba(212, 168, 83, 0.45);
+    color: #8a6d1f;
     font-size: 18px;
     font-weight: 600;
     letter-spacing: 1px;
@@ -1354,10 +1359,8 @@ const OVERLAY_STYLE = `
     height: 210px;
     border-radius: 50%;
     overflow: hidden;
-    will-change: transform;
-    background: radial-gradient(circle at 32% 30%, #a5f3fc 0%, #3b82f6 55%, #1e3a8a 100%);
-    box-shadow: 0 0 90px rgba(59, 130, 246, 0.55);
-    animation: breathe 8s ease-in-out infinite;
+    background: radial-gradient(circle at 32% 30%, #f3e6c2 0%, #d4a853 55%, #a87a1f 100%);
+    box-shadow: 0 0 90px rgba(212, 168, 83, 0.55);
 }
 
 .breathe-video {
@@ -1368,12 +1371,6 @@ const OVERLAY_STYLE = `
     border-radius: 50%;
 }
 
-@keyframes breathe {
-    0% { transform: scale(0.55); }
-    50% { transform: scale(1); }
-    100% { transform: scale(0.55); }
-}
-
 .breathe-ring {
     position: absolute;
     width: 240px;
@@ -1382,13 +1379,13 @@ const OVERLAY_STYLE = `
 
 .breathe-ring-bg {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.18);
+    stroke: rgba(212, 168, 83, 0.35);
     stroke-width: 5;
 }
 
 .breathe-ring-fg {
     fill: none;
-    stroke: #f8fafc;
+    stroke: #d4a853;
     stroke-width: 5;
     stroke-linecap: round;
     transition: stroke-dashoffset 1s linear;
@@ -1399,13 +1396,13 @@ const OVERLAY_STYLE = `
     font-size: 28px;
     font-weight: 600;
     letter-spacing: 0.5px;
-    color: #ffffff;
+    color: #3e2a24;
 }
 
 .breath-sub {
     margin: 0;
     font-size: 15px;
-    color: #94a3b8;
+    color: #85705b;
 }
 
 .tasks-panel,
@@ -1413,7 +1410,11 @@ const OVERLAY_STYLE = `
     max-width: 560px;
     width: 90vw;
     padding: 32px;
-    color: #e2e8f0;
+    color: #5c4b3a;
+    background: #fdf8f2;
+    border: 1px solid #e0d7c6;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px -28px rgba(92, 75, 58, 0.35), 0 1px 2px rgba(212, 168, 83, 0.2);
 }
 
 .tasks-eyebrow {
@@ -1422,7 +1423,7 @@ const OVERLAY_STYLE = `
     font-weight: 600;
     letter-spacing: 4px;
     text-transform: uppercase;
-    color: #93c5fd;
+    color: #c79a2e;
 }
 
 .tasks-title {
@@ -1430,14 +1431,14 @@ const OVERLAY_STYLE = `
     font-size: 32px;
     font-weight: 600;
     line-height: 1.3;
-    color: #ffffff;
+    color: #3e2a24;
 }
 
 .task-body {
     margin: 0 0 28px;
     font-size: 17px;
     line-height: 1.6;
-    color: #cbd5e1;
+    color: #85705b;
 }
 
 .realization-textarea {
@@ -1445,9 +1446,9 @@ const OVERLAY_STYLE = `
     box-sizing: border-box;
     padding: 14px 16px;
     border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(15, 23, 42, 0.7);
-    color: #f8fafc;
+    border: 1px solid #d8ccb4;
+    background: #ffffff;
+    color: #5c4b3a;
     font: inherit;
     font-size: 16px;
     line-height: 1.5;
@@ -1456,14 +1457,14 @@ const OVERLAY_STYLE = `
 
 .realization-textarea:focus {
     outline: none;
-    border-color: #60a5fa;
+    border-color: #d4a853;
 }
 
 .char-hint {
     margin: 0;
     font-variant-numeric: tabular-nums;
     font-size: 14px;
-    color: #94a3b8;
+    color: #a4937d;
 }
 
 .task-primary-button,
@@ -1472,7 +1473,7 @@ const OVERLAY_STYLE = `
     border: none;
     border-radius: 999px;
     padding: 14px 34px;
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, #d4a853 0%, #c79a2e 100%);
     color: #ffffff;
     font: inherit;
     font-size: 16px;
@@ -1480,13 +1481,13 @@ const OVERLAY_STYLE = `
     letter-spacing: 0.5px;
     cursor: pointer;
     transition: transform 150ms ease, opacity 150ms ease, box-shadow 150ms ease;
-    box-shadow: 0 8px 30px rgba(37, 99, 235, 0.45);
+    box-shadow: 0 8px 30px rgba(212, 168, 83, 0.45);
 }
 
 .task-primary-button:hover:not(:disabled),
 .task-control-next:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 36px rgba(37, 99, 235, 0.55);
+    box-shadow: 0 10px 36px rgba(212, 168, 83, 0.55);
 }
 
 .task-primary-button:disabled {
@@ -1516,9 +1517,9 @@ const OVERLAY_STYLE = `
     width: 100%;
     padding: 16px 20px;
     border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(148, 163, 184, 0.08);
-    color: #f8fafc;
+    border: 1px solid #d8ccb4;
+    background: #f8f3e9;
+    color: #3e2a24;
     font: inherit;
     font-size: 16px;
     cursor: pointer;
@@ -1526,8 +1527,8 @@ const OVERLAY_STYLE = `
 }
 
 .task-button:hover {
-    background: rgba(59, 130, 246, 0.22);
-    border-color: #60a5fa;
+    background: rgba(212, 168, 83, 0.18);
+    border-color: #d4a853;
     transform: translateY(-1px);
 }
 
@@ -1544,14 +1545,14 @@ const OVERLAY_STYLE = `
     font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: #93c5fd;
+    color: #c79a2e;
 }
 
 .choose-later {
     margin-top: 28px;
     border: none;
     background: none;
-    color: #94a3b8;
+    color: #a4937d;
     font: inherit;
     font-size: 14px;
     text-decoration: underline;
@@ -1568,7 +1569,7 @@ const OVERLAY_STYLE = `
 }
 
 .choose-later:hover {
-    color: #cbd5e1;
+    color: #85705b;
 }
 
 .quiz-options {
@@ -1583,9 +1584,9 @@ const OVERLAY_STYLE = `
     width: 100%;
     padding: 16px 20px;
     border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(148, 163, 184, 0.08);
-    color: #f8fafc;
+    border: 1px solid #d8ccb4;
+    background: #f8f3e9;
+    color: #3e2a24;
     font: inherit;
     font-size: 16px;
     cursor: pointer;
@@ -1594,15 +1595,15 @@ const OVERLAY_STYLE = `
 }
 
 .quiz-option:hover {
-    background: rgba(59, 130, 246, 0.22);
-    border-color: #60a5fa;
+    background: rgba(212, 168, 83, 0.18);
+    border-color: #d4a853;
     transform: translateY(-1px);
 }
 
 .quiz-option.selected {
-    background: rgba(59, 130, 246, 0.35);
-    border-color: #3b82f6;
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+    background: rgba(212, 168, 83, 0.35);
+    border-color: #d4a853;
+    box-shadow: 0 0 20px rgba(212, 168, 83, 0.25);
 }
 
 .quiz-header {
@@ -1621,7 +1622,7 @@ const OVERLAY_STYLE = `
     flex-shrink: 0;
     font-size: 13px;
     font-variant-numeric: tabular-nums;
-    color: #94a3b8;
+    color: #a4937d;
 }
 
 .quiz-steps {
@@ -1634,12 +1635,12 @@ const OVERLAY_STYLE = `
     height: 4px;
     flex: 1;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.28);
+    background: rgba(212, 168, 83, 0.3);
     transition: background 200ms ease;
 }
 
 .quiz-step-dot.active {
-    background: #fbbf24;
+    background: #d4a853;
 }
 
 .quiz-prompt {
@@ -1651,20 +1652,20 @@ const OVERLAY_STYLE = `
     box-sizing: border-box;
     padding: 16px 20px;
     border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(148, 163, 184, 0.08);
-    color: #f8fafc;
+    border: 1px solid #d8ccb4;
+    background: #f8f3e9;
+    color: #3e2a24;
     font: inherit;
     font-size: 16px;
 }
 
 .quiz-custom-input::placeholder {
-    color: #94a3b8;
+    color: #a4937d;
 }
 
 .quiz-custom-input:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: #d4a853;
 }
 
 .quiz-nav-row {
@@ -1679,7 +1680,7 @@ const OVERLAY_STYLE = `
     padding: 14px 0;
     border: 0;
     background: transparent;
-    color: #94a3b8;
+    color: #a4937d;
     font: inherit;
     font-size: 14px;
     cursor: pointer;
@@ -1688,7 +1689,7 @@ const OVERLAY_STYLE = `
 }
 
 .quiz-back-button:hover {
-    color: #cbd5e1;
+    color: #85705b;
 }
 
 .quiz-back-button:disabled {
@@ -1704,7 +1705,7 @@ const OVERLAY_STYLE = `
     margin: 0 0 20px;
     font-size: 20px;
     line-height: 1.7;
-    color: #e2e8f0;
+    color: #5c4b3a;
 }
 
 .story-paragraph:last-child {
@@ -1728,7 +1729,7 @@ const OVERLAY_STYLE = `
     position: relative;
     aspect-ratio: 16 / 9;
     overflow: hidden;
-    border: 1px solid #d4af37;
+    border: 1px solid #d4a853;
     background: #faf8f5;
 }
 
@@ -1762,7 +1763,7 @@ const OVERLAY_STYLE = `
 
 .zen-video-ring {
     position: absolute;
-    border: 1px solid #d4af37;
+    border: 1px solid #d4a853;
     border-radius: 50%;
     opacity: 0.2;
 }
@@ -1782,9 +1783,9 @@ const OVERLAY_STYLE = `
     width: 68px;
     height: 68px;
     place-items: center;
-    border: 1px solid #d4af37;
+    border: 1px solid #d4a853;
     border-radius: 50%;
-    background: #d4af37;
+    background: #d4a853;
     transition: transform 250ms ease, background-color 250ms ease, color 250ms ease;
 }
 
@@ -1800,7 +1801,7 @@ const OVERLAY_STYLE = `
     width: 36px;
     height: 1px;
     margin: 12px auto 0;
-    background: #d4af37;
+    background: #d4a853;
 }
 
 .zen-video-unavailable {
@@ -1821,9 +1822,9 @@ const OVERLAY_STYLE = `
     border: 1px solid #e8dfc8;
     border-radius: 2px;
     color: #3e2a24;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     text-align: center;
-    box-shadow: 0 20px 50px rgba(62, 42, 36, 0.35), 0 1px 2px rgba(212, 175, 55, 0.25);
+    box-shadow: 0 20px 50px rgba(62, 42, 36, 0.35), 0 1px 2px rgba(212, 168, 83, 0.25);
 }
 
 .challenge-head {
@@ -1836,13 +1837,13 @@ const OVERLAY_STYLE = `
 .challenge-lotus {
     width: 48px;
     height: 48px;
-    color: #d4af37;
+    color: #d4a853;
 }
 
 .challenge-rule {
     width: 96px;
     height: 1px;
-    background: #d4af37;
+    background: #d4a853;
     margin-top: 16px;
     opacity: 0.5;
 }
@@ -1852,7 +1853,7 @@ const OVERLAY_STYLE = `
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.2em;
-    color: #d4af37;
+    color: #d4a853;
 }
 
 .challenge-title {
@@ -1878,7 +1879,7 @@ const OVERLAY_STYLE = `
     font-size: 15px;
     line-height: 1.6;
     color: #6b5847;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 .challenge-timer {
@@ -1887,7 +1888,7 @@ const OVERLAY_STYLE = `
     align-items: center;
     gap: 6px;
     margin: 0 0 14px;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 .challenge-timer-label {
@@ -1903,7 +1904,7 @@ const OVERLAY_STYLE = `
     font-variant-numeric: tabular-nums;
     line-height: 1;
     color: #3e2a24;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 .challenge-progress {
@@ -1917,7 +1918,7 @@ const OVERLAY_STYLE = `
 
 .challenge-progress-fill {
     height: 100%;
-    background: #d4af37;
+    background: #d4a853;
     transition: width 250ms linear;
 }
 
@@ -1948,7 +1949,7 @@ const OVERLAY_STYLE = `
 
 .challenge-card:hover {
     background: #efe9d7;
-    border-color: #d4af37;
+    border-color: #d4a853;
     transform: translateY(-1px);
 }
 
@@ -1961,7 +1962,7 @@ const OVERLAY_STYLE = `
     font-size: 13px;
     color: #6b5847;
     line-height: 1.4;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 .challenge-actions {
@@ -1975,10 +1976,10 @@ const OVERLAY_STYLE = `
     position: relative;
     width: 100%;
     padding: 12px 32px;
-    border: 1px solid #d4af37;
+    border: 1px solid #d4a853;
     background: transparent;
     color: #3e2a24;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     font-size: 16px;
     letter-spacing: 0.4px;
     cursor: pointer;
@@ -2013,7 +2014,7 @@ const OVERLAY_STYLE = `
     border: none;
     background: none;
     color: #6b5847;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     font-size: 14px;
     text-decoration: underline;
     text-underline-offset: 3px;

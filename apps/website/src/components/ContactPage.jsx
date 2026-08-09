@@ -47,11 +47,11 @@ export default function ContactPage() {
                         <div className="space-y-8 font-sans">
                             <div>
                                 <h3 className="text-white font-bold uppercase tracking-widest text-xs mb-2">Email</h3>
-                                <p className="text-white/80 text-xl font-light">sangha@lumbinix.ai</p>
+                                <p className="text-white/80 text-xl font-light">sangha@vinaya.dev</p>
                             </div>
                             <div>
                                 <h3 className="text-white font-bold uppercase tracking-widest text-xs mb-2">Discord</h3>
-                                <p className="text-white/80 text-xl font-light">@lumbinix/sangha</p>
+                                <p className="text-white/80 text-xl font-light">@vinaya/sangha</p>
                             </div>
                             <div>
                                 <h3 className="text-white font-bold uppercase tracking-widest text-xs mb-2">The Lab</h3>

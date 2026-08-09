@@ -113,10 +113,10 @@ function mountBlock(message: BlockMessage): boolean {
 		unmountBlock();
 		return true;
 	}
-	if (blockMounted || document.querySelector("[data-viyana-block='true']")) return true;
+	if (blockMounted || document.querySelector("[data-vinaya-block='true']")) return true;
 
 	const host = document.createElement("div");
-	host.dataset.viyanaBlock = "true";
+	host.dataset.vinayaBlock = "true";
 
 	const shadow = host.attachShadow({ mode: "open" });
 
@@ -309,12 +309,13 @@ chrome.runtime.onMessage.addListener((message: BlockMessage, _sender, sendRespon
 
 	if (!validCommands.includes(command)) return;
 
-	console.log("[Viyana Block] Received command:", command, message);
+	console.log("[Vinaya Block] Received command:", command, message);
 	sendResponse({ vinayaBlockReady: mountBlock(message as BlockMessage) });
 	return false;
 });
 
 const BLOCK_OVERLAY_STYLE = `
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
 :host(div) {
     all: initial;
     display: block;
@@ -331,9 +332,9 @@ const BLOCK_OVERLAY_STYLE = `
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(160deg, #0f172a 0%, #1e293b 55%, #1e3a5f 100%);
-    color: #e2e8f0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: linear-gradient(160deg, #fbf7f0 0%, #f5edd9 100%);
+    color: #5c4b3a;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
     text-align: center;
@@ -369,25 +370,25 @@ const BLOCK_OVERLAY_STYLE = `
     font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.5px;
-    color: #ffffff;
+    color: #3e2a24;
 }
 
 .block-subtitle {
     margin: 0 0 24px;
     font-size: 17px;
     line-height: 1.6;
-    color: #cbd5e1;
+    color: #85705b;
 }
 
 .block-message {
     margin: 0 0 24px;
     padding: 16px;
     border-radius: 12px;
-    background: rgba(148, 163, 184, 0.1);
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: #f8f3e9;
+    border: 1px solid #e0d7c6;
     font-size: 15px;
     line-height: 1.5;
-    color: #94a3b8;
+    color: #6b5847;
 }
 
 .block-countdown {
@@ -398,8 +399,8 @@ const BLOCK_OVERLAY_STYLE = `
     margin: 24px 0;
     padding: 20px;
     border-radius: 16px;
-    background: rgba(59, 130, 246, 0.15);
-    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: rgba(212, 168, 83, 0.18);
+    border: 1px solid rgba(212, 168, 83, 0.4);
 }
 
 .countdown-label {
@@ -407,21 +408,21 @@ const BLOCK_OVERLAY_STYLE = `
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: #93c5fd;
+    color: #c79a2e;
 }
 
 .countdown-value {
     font-size: 48px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: #f8fafc;
-    font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
+    color: #3e2a24;
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 .block-hint {
     margin: 16px 0 0;
     font-size: 13px;
-    color: #64748b;
+    color: #a4937d;
 }
 
 .block-dismiss {
@@ -429,7 +430,7 @@ const BLOCK_OVERLAY_STYLE = `
     border: none;
     border-radius: 999px;
     padding: 14px 32px;
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, #d4a853 0%, #c79a2e 100%);
     color: #ffffff;
     font: inherit;
     font-size: 15px;
@@ -437,12 +438,12 @@ const BLOCK_OVERLAY_STYLE = `
     letter-spacing: 0.5px;
     cursor: pointer;
     transition: transform 150ms ease, opacity 150ms ease, box-shadow 150ms ease;
-    box-shadow: 0 8px 30px rgba(37, 99, 235, 0.45);
+    box-shadow: 0 8px 30px rgba(212, 168, 83, 0.45);
 }
 
 .block-dismiss:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 36px rgba(37, 99, 235, 0.55);
+    box-shadow: 0 10px 36px rgba(212, 168, 83, 0.55);
 }
 
 .block-dismiss:active {
@@ -450,12 +451,12 @@ const BLOCK_OVERLAY_STYLE = `
 }
 
 /* Type-specific styling */
-.block-hard_block .block-title { color: #f87171; }
-.block-hard_block .block-icon { filter: drop-shadow(0 0 20px rgba(248, 113, 113, 0.5)); }
+.block-hard_block .block-title { color: #b85c4a; }
+.block-hard_block .block-icon { filter: drop-shadow(0 0 20px rgba(184, 92, 74, 0.45)); }
 
-.block-soft_block .block-title { color: #fbbf24; }
-.block-soft_block .block-icon { filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.5)); }
+.block-soft_block .block-title { color: #8a6d1f; }
+.block-soft_block .block-icon { filter: drop-shadow(0 0 20px rgba(212, 168, 83, 0.5)); }
 
-.block-show_warning .block-title { color: #60a5fa; }
-.block-show_warning .block-icon { filter: drop-shadow(0 0 20px rgba(96, 165, 250, 0.5)); }
+.block-show_warning .block-title { color: #8a6d1f; }
+.block-show_warning .block-icon { filter: drop-shadow(0 0 20px rgba(212, 168, 83, 0.5)); }
 `;

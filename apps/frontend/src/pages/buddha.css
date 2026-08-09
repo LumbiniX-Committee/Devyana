@@ -6,7 +6,7 @@
   to parchment throughout, including Radix/portal'd surfaces.
 */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
 
 [data-buddha-theme] {
 	/* Core surfaces — rice paper warmth */
@@ -58,20 +58,61 @@
 	border-color: var(--border);
 }
 
+/* Dark mode: re-skins the semantic surface tokens so `dark` works across the
+   dashboard pages without touching their component code. */
+html.dark [data-buddha-theme] {
+	--background: #16110b;
+	--foreground: #efe6d4;
+
+	--card: #221a12;
+	--card-foreground: #efe6d4;
+
+	--popover: #221a12;
+	--popover-foreground: #efe6d4;
+
+	--primary: #a4b488;
+	--primary-foreground: #16110b;
+
+	--secondary: #2b2218;
+	--secondary-foreground: #efe6d4;
+
+	--muted: #2b2218;
+	--muted-foreground: #b3a48c;
+
+	--accent: #33291c;
+	--accent-foreground: #efe6d4;
+
+	--destructive: #d4755f;
+	--destructive-foreground: #16110b;
+
+	--border: rgba(244, 236, 222, 0.14);
+	--input: rgba(244, 236, 222, 0.16);
+	--ring: #d4a853;
+}
+
+html.dark [data-buddha-theme] * {
+	border-color: var(--border);
+}
+
+html.dark [data-buddha-theme] ::selection {
+	background: rgba(164, 180, 136, 0.35);
+	color: var(--foreground);
+}
+
 [data-buddha-theme] ::selection {
 	background: rgba(139, 154, 110, 0.35);
 	color: var(--foreground);
 }
 
 .buddha-heading {
-	font-family: Georgia, "Times New Roman", serif;
+	font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 	font-weight: 600;
 	letter-spacing: 0.01em;
 }
 
 .buddha-body {
 	font-family:
-		"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		"Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* Serene hide scrollbars for the horizontal card rails. */

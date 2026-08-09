@@ -15,15 +15,15 @@ const HourlyProductivityChart = lazy(
 	() => import("../components/charts/HourlyProductivityChart"),
 );
 
-const INK = "#5C4B3A";
-const MUTED = "#85705B";
+const INK = "var(--ink)";
+const MUTED = "var(--muted-ink)";
 
 function ChartFallback() {
 	return (
 		<div
 			className="flex h-72 flex-col items-center justify-center gap-3 rounded-3xl border text-sm"
 			style={{
-				backgroundColor: "#FDF8F2",
+				backgroundColor: "var(--surface)",
 				borderColor: "rgba(92, 75, 58, 0.16)",
 				color: MUTED,
 			}}
@@ -38,7 +38,9 @@ function ChartFallback() {
 					}),
 				}}
 			/>
-			<p style={{ fontFamily: '"Georgia", serif' }}>Sitting with the data…</p>
+			<p style={{ fontFamily: '"Poppins", sans-serif' }}>
+				Sitting with the data…
+			</p>
 		</div>
 	);
 }
@@ -59,7 +61,7 @@ export default function Dashboard() {
 		<div
 			className="relative min-h-screen w-full"
 			style={{
-				backgroundColor: "#FBF7F0",
+				backgroundColor: "var(--page)",
 				backgroundImage: lotusBackground({
 					stroke: "#C17A5A",
 					opacity: 0.07,
@@ -79,7 +81,7 @@ export default function Dashboard() {
 									opacity: 0.85,
 									size: 44,
 								}),
-								backgroundColor: "#FDF8F2",
+								backgroundColor: "var(--surface)",
 								border: "1px solid rgba(92, 75, 58, 0.18)",
 							}}
 							aria-hidden
@@ -89,7 +91,7 @@ export default function Dashboard() {
 								className="buddha-heading text-2xl leading-tight"
 								style={{ color: INK }}
 							>
-								Viyana
+								Vinaya
 							</h1>
 							<p className="text-xs" style={{ color: MUTED }}>
 								Welcome back, {name} — may this day unfold with ease.

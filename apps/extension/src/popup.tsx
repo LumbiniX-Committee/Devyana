@@ -2,6 +2,10 @@ import { sendToBackground } from "@plasmohq/messaging";
 import { useCallback, useEffect, useState } from "react";
 import type { InterventionTaskType } from "@vinaya/behavior-core";
 import type { LiveRule } from "@vinaya/behavior-core";
+import "@fontsource/poppins/400.css";
+import "@fontsource/poppins/500.css";
+import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
 import "./style.css";
 
 type ConnectionStatus = {
@@ -310,8 +314,8 @@ function IndexPopup() {
 
     if (!connectionStatus) {
         return (
-            <div className="w-[360px] h-[500px] bg-zinc-950 p-4 font-sans text-zinc-100 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-emerald-400 border-t-transparent" />
+            <div className="w-[360px] h-[500px] bg-[#fbf7f0] p-4 font-sans text-[#5c4b3a] flex items-center justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#d4a853] border-t-transparent" />
             </div>
         );
     }
@@ -321,25 +325,25 @@ function IndexPopup() {
     const isBrowserPage = currentTab?.url.startsWith("chrome://") || currentTab?.url.startsWith("chrome-extension://") || currentTab?.url.startsWith("edge://") || currentTab?.url.startsWith("about:");
 
     return (
-        <div className="w-[360px] h-[500px] bg-zinc-950 p-4 font-sans text-zinc-100 overflow-y-auto">
+        <div className="w-[360px] h-[500px] bg-[#fbf7f0] p-4 font-sans text-[#5c4b3a] overflow-y-auto">
             <header className="mb-4 flex items-center justify-between">
                 <h1 className="text-base font-semibold tracking-wide">
-                    Viyana <span className="text-emerald-400">Control</span>
+                    Vinaya <span className="text-[#c79a2e]">Control</span>
                 </h1>
                 <button
                     onClick={() => void fetchStatus()}
                     type="button"
-                    className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] hover:bg-zinc-800"
+                    className="rounded-md border border-[#d8ccb4] px-2 py-1 text-[11px] text-[#5c4b3a] hover:bg-[#efe6d4]"
                 >
                     Refresh
                 </button>
             </header>
 
-            <section className="mb-4 space-y-2 p-3 rounded-lg border border-zinc-800 bg-zinc-900/60">
+            <section className="mb-4 space-y-2 p-3 rounded-lg border border-[#e0d7c6] bg-[#fdf8f2]">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-zinc-300">Connection</span>
+                    <span className="text-xs font-medium text-[#85705b]">Connection</span>
                     <div className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${connectionStatus.connected ? "bg-emerald-400" : "bg-rose-500"}`} />
+                        <span className={`h-2 w-2 rounded-full ${connectionStatus.connected ? "bg-[#d4a853]" : "bg-[#b85c4a]"}`} />
                         <span className="text-xs font-medium">
                             {connectionStatus.connected ? "Connected" : "Disconnected"}
                         </span>
@@ -348,21 +352,21 @@ function IndexPopup() {
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                     <div>
-                        <span className="text-zinc-500">Port</span>
-                        <div className="font-mono text-zinc-200">
+                        <span className="text-[#a4937d]">Port</span>
+                        <div className="font-mono text-[#5c4b3a]">
                             {connectionStatus.port ? `Port ${connectionStatus.port}` : "—"}
                         </div>
                     </div>
                     <div>
-                        <span className="text-zinc-500">Unsynced</span>
-                        <div className="font-mono text-zinc-200">
+                        <span className="text-[#a4937d]">Unsynced</span>
+                        <div className="font-mono text-[#5c4b3a]">
                             {connectionStatus.unsyncedCount} event{connectionStatus.unsyncedCount !== 1 ? "s" : ""} pending sync
                         </div>
                     </div>
                 </div>
 
                 {connectionStatus.passiveMode && (
-                    <div className="mt-2 p-2 rounded-md bg-yellow-900/30 border border-yellow-700 text-yellow-300 text-[11px]">
+                    <div className="mt-2 p-2 rounded-md bg-[#f6ecd2] border border-[#dfc47e] text-[#8a6d1f] text-[11px]">
                         ⚠ Desktop app not found. Data will be stored locally and synced later.
                     </div>
                 )}
@@ -372,11 +376,11 @@ function IndexPopup() {
                         onClick={() => void retryConnection()}
                         disabled={retrying || connectionStatus.connected}
                         type="button"
-                        className="flex-1 rounded-md border border-zinc-700 px-2 py-1.5 text-xs hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 rounded-md border border-[#d8ccb4] px-2 py-1.5 text-xs text-[#5c4b3a] hover:bg-[#efe6d4] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {retrying ? (
                             <span className="flex items-center justify-center gap-1.5">
-                                <span className="animate-spin h-3 w-3 border-2 border-emerald-400 border-t-transparent rounded-full" />
+                                <span className="animate-spin h-3 w-3 border-2 border-[#d4a853] border-t-transparent rounded-full" />
                                 Retrying…
                             </span>
                         ) : (
@@ -386,7 +390,7 @@ function IndexPopup() {
                     <button
                         onClick={() => void clearLog()}
                         type="button"
-                        className="rounded-md border border-zinc-700 px-2 py-1.5 text-xs hover:bg-zinc-800"
+                        className="rounded-md border border-[#d8ccb4] px-2 py-1.5 text-xs text-[#5c4b3a] hover:bg-[#efe6d4]"
                     >
                         Clear Synced Events
                     </button>
@@ -394,36 +398,36 @@ function IndexPopup() {
             </section>
 
             <section className="mb-4 space-y-3">
-                <h2 className="text-sm font-medium text-zinc-300">Buddha's Palm Test</h2>
+                <h2 className="text-sm font-medium text-[#85705b]">Buddha's Palm Test</h2>
 
                 {currentTab ? (
-                    <div className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/60">
+                    <div className="p-3 rounded-lg border border-[#e0d7c6] bg-[#fdf8f2]">
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-zinc-500">Active Tab</span>
+                            <span className="text-xs text-[#a4937d]">Active Tab</span>
                             {!isBrowserPage && currentTab.id && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/50 text-emerald-300 border border-emerald-800">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f6ecd2] text-[#8a6d1f] border border-[#dfc47e]">
                                     Injectible
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-zinc-400 truncate" title={currentTab.url}>
+                        <p className="text-xs text-[#85705b] truncate" title={currentTab.url}>
                             {currentTab.hostname}
                         </p>
-                        <p className="text-[10px] text-zinc-600 truncate" title={currentTab.url}>
+                        <p className="text-[10px] text-[#b6a68e] truncate" title={currentTab.url}>
                             {currentTab.url}
                         </p>
                         {isBrowserPage && (
-                            <p className="mt-1 text-[10px] text-rose-400">Cannot inject into browser pages</p>
+                            <p className="mt-1 text-[10px] text-[#b85c4a]">Cannot inject into browser pages</p>
                         )}
                     </div>
                 ) : (
-                    <div className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/60 text-center">
-                        <p className="text-xs text-rose-400">No accessible tab found</p>
+                    <div className="p-3 rounded-lg border border-[#e0d7c6] bg-[#fdf8f2] text-center">
+                        <p className="text-xs text-[#b85c4a]">No accessible tab found</p>
                     </div>
                 )}
 
                 <div className="space-y-2">
-                    <span className="text-xs text-zinc-500">Intervention Type</span>
+                    <span className="text-xs text-[#a4937d]">Intervention Type</span>
                     <div className="flex flex-wrap gap-1">
                         {INTERVENTION_TYPES.map(type => (
                             <button
@@ -433,10 +437,10 @@ function IndexPopup() {
                                 type="button"
                                 className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
                                     selectedType === type.id
-                                        ? "bg-emerald-600 text-white"
+                                        ? "bg-[#d4a853] text-white"
                                         : type.implemented
-                                        ? "bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-                                        : "bg-zinc-800/50 text-zinc-500 cursor-not-allowed"
+                                        ? "bg-[#f2eadb] text-[#5c4b3a] hover:bg-[#e8ddc6]"
+                                        : "bg-[#f2eadb]/60 text-[#b6a68e] cursor-not-allowed"
                                 }`}
                                 title={type.implemented ? type.description : `${type.description} — Coming soon`}
                             >
@@ -447,12 +451,12 @@ function IndexPopup() {
                 </div>
 
                 {typeConfig?.implemented && typeConfig.params.length > 0 && (
-                    <div className="space-y-2 p-3 rounded-lg border border-zinc-800 bg-zinc-900/60">
-                        <span className="text-xs text-zinc-500">Parameters</span>
+                    <div className="space-y-2 p-3 rounded-lg border border-[#e0d7c6] bg-[#fdf8f2]">
+                        <span className="text-xs text-[#a4937d]">Parameters</span>
                         <div className="space-y-2">
                             {typeConfig.params.map(param => (
                                 <div key={param.key} className="space-y-1">
-                                    <label htmlFor={`param-${param.key}`} className="text-[11px] text-zinc-400">{param.label}</label>
+                                    <label htmlFor={`param-${param.key}`} className="text-[11px] text-[#85705b]">{param.label}</label>
                                     {param.type === "number" ? (
                                         <input
                                             id={`param-${param.key}`}
@@ -460,7 +464,7 @@ function IndexPopup() {
                                             value={interventionParams[param.key] as number}
                                             onChange={e => setInterventionParams(p => ({ ...p, [param.key]: Number(e.target.value) }))}
                                             placeholder={param.placeholder}
-                                            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                                            className="w-full rounded-md border border-[#d8ccb4] bg-white px-2 py-1.5 text-xs text-[#5c4b3a] placeholder-[#b6a68e] focus:border-[#d4a853] focus:outline-none"
                                             min="1"
                                         />
                                     ) : (
@@ -470,7 +474,7 @@ function IndexPopup() {
                                             value={interventionParams[param.key] as string}
                                             onChange={e => setInterventionParams(p => ({ ...p, [param.key]: e.target.value }))}
                                             placeholder={param.placeholder}
-                                            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                                            className="w-full rounded-md border border-[#d8ccb4] bg-white px-2 py-1.5 text-xs text-[#5c4b3a] placeholder-[#b6a68e] focus:border-[#d4a853] focus:outline-none"
                                         />
                                     )}
                                 </div>
@@ -480,12 +484,12 @@ function IndexPopup() {
                 )}
 
                 {cooldown.onCooldown && (
-                    <div className="p-3 rounded-lg border border-rose-700 bg-rose-900/30">
+                    <div className="p-3 rounded-lg border border-[#e0a18f] bg-[#f9e7df]">
                         <div className="flex items-center justify-between text-xs">
-                            <span className="text-rose-300">Cooldown Active</span>
+                            <span className="text-[#b85c4a]">Cooldown Active</span>
                             <CooldownTimer until={cooldown.until} />
                         </div>
-                        <p className="text-[10px] text-rose-400 mt-1">
+                        <p className="text-[10px] text-[#a04a3a] mt-1">
                             Rule: <span className="font-mono">{cooldown.ruleId}</span>
                         </p>
                     </div>
@@ -497,26 +501,26 @@ function IndexPopup() {
                     type="button"
                     className={`w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                         canTrigger && !isBrowserPage
-                            ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                            : "bg-zinc-800/50 text-zinc-500 cursor-not-allowed"
+                            ? "bg-[#d4a853] text-white hover:bg-[#c79a2e]"
+                            : "bg-[#f2eadb]/60 text-[#b6a68e] cursor-not-allowed"
                     }`}
                 >
                     {triggering ? "Triggering…" : "Trigger Intervention"}
                 </button>
 
                 {isBrowserPage && (
-                    <p className="text-center text-[10px] text-rose-400">Cannot trigger on browser pages</p>
+                    <p className="text-center text-[10px] text-[#b85c4a]">Cannot trigger on browser pages</p>
                 )}
             </section>
 
             <section className="mb-4 space-y-2">
-                <h2 className="text-sm font-medium text-zinc-300">Quick Settings / Debug</h2>
+                <h2 className="text-sm font-medium text-[#85705b]">Quick Settings / Debug</h2>
 
-                <div className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/60">
-                    <span className="text-xs text-zinc-500">Emit Rule Filter Preview</span>
+                <div className="p-3 rounded-lg border border-[#e0d7c6] bg-[#fdf8f2]">
+                    <span className="text-xs text-[#a4937d]">Emit Rule Filter Preview</span>
                     <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
                         {rules.length === 0 ? (
-                            <p className="text-[11px] text-zinc-500">Loading rules…</p>
+                            <p className="text-[11px] text-[#a4937d]">Loading rules…</p>
                         ) : (
                             rules
                                 .filter(r => r.behavior.emit !== "fallback")
@@ -524,16 +528,16 @@ function IndexPopup() {
                                 .map(rule => (
                                     <div
                                         key={rule.id}
-                                        className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-zinc-900"
+                                        className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-[#f2eadb]"
                                     >
-                                        <span className="text-zinc-300 truncate pr-2">{rule.id}</span>
+                                        <span className="text-[#5c4b3a] truncate pr-2">{rule.id}</span>
                                         <span
                                             className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                                                 rule.behavior.emit === "never"
-                                                    ? "bg-rose-900/50 text-rose-300 border border-rose-700"
+                                                    ? "bg-[#f9e7df] text-[#a04a3a] border border-[#e0a18f]"
                                                     : rule.behavior.emit === "always"
-                                                    ? "bg-emerald-900/50 text-emerald-300 border border-emerald-700"
-                                                    : "bg-amber-900/50 text-amber-300 border border-amber-700"
+                                                    ? "bg-[#f6ecd2] text-[#8a6d1f] border border-[#dfc47e]"
+                                                    : "bg-[#f6ecd2] text-[#8a6d1f] border border-[#dfc47e]"
                                             }`}
                                         >
                                             {rule.behavior.emit}
@@ -543,7 +547,7 @@ function IndexPopup() {
                         )}
                     </div>
                     {rules.length > 8 && (
-                        <p className="mt-1 text-[10px] text-zinc-600">
+                        <p className="mt-1 text-[10px] text-[#b6a68e]">
                             +{rules.length - 8} more rules
                         </p>
                     )}
@@ -552,7 +556,7 @@ function IndexPopup() {
                 <button
                     onClick={() => void openDashboard()}
                     type="button"
-                    className="w-full rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800"
+                    className="w-full rounded-md border border-[#d8ccb4] px-3 py-2 text-sm text-[#5c4b3a] hover:bg-[#efe6d4]"
                 >
                     Open Dashboard
                 </button>
@@ -562,8 +566,8 @@ function IndexPopup() {
                 <div
                     className={`fixed bottom-4 left-4 right-4 max-w-[360px] rounded-md px-3 py-2 text-xs font-medium animate-slide-up ${
                         toast.type === "success"
-                            ? "bg-emerald-900/90 text-emerald-200 border border-emerald-700"
-                            : "bg-rose-900/90 text-rose-200 border border-rose-700"
+                            ? "bg-[#f6ecd2]/95 text-[#6b5310] border border-[#dfc47e]"
+                            : "bg-[#f9e7df]/95 text-[#8f3d2f] border border-[#e0a18f]"
                     }`}
                     role="alert"
                 >
@@ -600,7 +604,7 @@ function CooldownTimer({ until }: { until?: number }) {
         return () => clearInterval(interval);
     }, [until]);
 
-    if (remaining <= 0) return <span className="text-emerald-300">Expired</span>;
+    if (remaining <= 0) return <span className="text-[#8a6d1f]">Expired</span>;
 
     const seconds = Math.ceil(remaining / 1000);
     const mins = Math.floor(seconds / 60);

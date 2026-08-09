@@ -75,13 +75,13 @@ export default function Dashboard() {
 					>
 						<div className="mb-4 flex flex-wrap items-center justify-center gap-2">
 							{role && (
-								<span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-foreground/80">
+								<span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-foreground/5 px-3 py-1 text-xs font-medium text-foreground/80">
 									<Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
 									{role}
 								</span>
 							)}
 							{goal && (
-								<span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-foreground/80">
+								<span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-foreground/5 px-3 py-1 text-xs font-medium text-foreground/80">
 									<Target className="h-3.5 w-3.5" strokeWidth={1.8} />
 									{goal}
 								</span>
@@ -124,7 +124,7 @@ export default function Dashboard() {
 									key={s}
 									onClick={() => setPrompt(s)}
 									type="button"
-									className="rounded-full border border-white/12 bg-white/5 px-3.5 py-1.5 text-sm text-foreground/80 transition-colors hover:border-white/30 hover:text-foreground"
+									className="rounded-full border border-foreground/10 bg-foreground/5 px-3.5 py-1.5 text-sm text-foreground/80 transition-colors hover:border-foreground/25 hover:text-foreground"
 								>
 									{s}
 								</button>

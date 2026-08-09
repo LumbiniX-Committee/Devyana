@@ -13,9 +13,9 @@ interface Star {
 }
 
 /**
- * Canvas twinkling starfield.
+ * Canvas twinkling golden-dust field.
  * Respects prefers-reduced-motion: when reduced, renders fewer, dimmer,
- * perfectly still stars (no twinkle, no drift, no animation loop).
+ * perfectly still motes (no twinkle, no drift, no animation loop).
  */
 export const Starfield = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -57,7 +57,7 @@ export const Starfield = () => {
 			for (const s of stars) {
 				ctx.beginPath();
 				ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-				ctx.fillStyle = `rgba(255,255,255,${(s.base + 0.15).toFixed(3)})`;
+				ctx.fillStyle = `rgba(212, 168, 83,${(s.base + 0.1).toFixed(3)})`;
 				ctx.fill();
 			}
 		};
@@ -69,9 +69,9 @@ export const Starfield = () => {
 					s.base + s.amp * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
 				ctx.beginPath();
 				ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-				ctx.fillStyle = `rgba(255,255,255,${tw.toFixed(3)})`;
+				ctx.fillStyle = `rgba(212, 168, 83,${tw.toFixed(3)})`;
 				ctx.shadowBlur = s.r > 1 ? 4 : 0;
-				ctx.shadowColor = "rgba(180,205,255,0.7)";
+				ctx.shadowColor = "rgba(240, 194, 92, 0.6)";
 				ctx.fill();
 				s.y -= s.drift;
 				if (s.y < -2) s.y = h + 2;

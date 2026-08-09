@@ -52,12 +52,12 @@ export const TopBar = ({ onLogoClick }: TopBarProps) => {
 				</DropdownMenuTrigger>
 				<DropdownMenuContent
 					align="end"
-					className="w-44 border-white/10 bg-popover/95 text-popover-foreground backdrop-blur-xl"
+					className="w-44 border-foreground/10 bg-popover/95 text-popover-foreground backdrop-blur-xl"
 				>
 					<DropdownMenuLabel className="text-muted-foreground">
 						Language
 					</DropdownMenuLabel>
-					<DropdownMenuSeparator className="bg-white/10" />
+					<DropdownMenuSeparator className="bg-foreground/10" />
 					{LANGS.map((l) => (
 						<DropdownMenuItem
 							key={l}

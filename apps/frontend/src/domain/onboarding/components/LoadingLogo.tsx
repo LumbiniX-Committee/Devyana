@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 /**
- * Opening loader — a glossy metallic "v" (Vinaya) that spins on a pure-black stage.
+ * Opening loader — a glossy golden "v" (Vinaya) that spins on the warm ivory stage.
  * The spin is a transform, so it automatically calms under reduced-motion (MotionConfig).
  */
 export const LoadingLogo = () => {

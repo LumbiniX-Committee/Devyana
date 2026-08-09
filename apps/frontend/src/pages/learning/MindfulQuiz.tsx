@@ -41,7 +41,7 @@ export function MindfulQuiz({ quiz }: MindfulQuizProps) {
     return (
       <section className="mt-6 rounded-2xl border p-5 text-center" style={{ borderColor: "#E8DFC8", backgroundColor: "#FAF8F5" }} aria-label="Completed mindful reflection">
         <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "#8B0000" }}>Reflection complete</p>
-        <p className="mt-2 text-sm leading-relaxed" style={{ color: "#5C4B3A", fontFamily: '"Georgia", serif' }}>Thank you for meeting this teaching with attention. Carry one response with you into the next moment.</p>
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: "#5C4B3A", fontFamily: '"Poppins", sans-serif' }}>Thank you for meeting this teaching with attention. Carry one response with you into the next moment.</p>
         <button type="button" className="mt-4 text-xs underline underline-offset-4" style={{ color: "#8B0000" }} onClick={() => { setIndex(0); setAnswers(quiz.questions.map(() => "")); setCustomAnswers(quiz.questions.map(() => "")); setCompleted(false); }}>
           Reflect again
         </button>
@@ -61,17 +61,17 @@ export function MindfulQuiz({ quiz }: MindfulQuizProps) {
       <div className="mt-3 flex gap-2" aria-hidden="true">
         {quiz.questions.map((_, questionIndex) => <i key={`quiz-step-${questionIndex}`} className="h-1 flex-1 rounded-full" style={{ backgroundColor: questionIndex <= index ? "#D4AF37" : "#E8DFC8" }} />)}
       </div>
-      <h3 className="mt-5 text-lg leading-relaxed" style={{ color: "#3E2A24", fontFamily: '"Georgia", serif' }}>{question.prompt}</h3>
+      <h3 className="mt-5 text-lg leading-relaxed" style={{ color: "#3E2A24", fontFamily: '"Poppins", sans-serif' }}>{question.prompt}</h3>
       <div className="mt-4 space-y-2">
         {question.options.map((option) => {
           const selected = answer === option && !customAnswer.trim();
           return (
-            <button key={option} type="button" onClick={() => selectOption(option)} className="w-full rounded-xl border px-4 py-3 text-left text-sm transition-colors" style={{ borderColor: selected ? "#8B0000" : "#E8DFC8", backgroundColor: selected ? "#8B0000" : "#FAF8F5", color: selected ? "#FAF8F5" : "#3E2A24", fontFamily: '"Georgia", serif' }}>
+            <button key={option} type="button" onClick={() => selectOption(option)} className="w-full rounded-xl border px-4 py-3 text-left text-sm transition-colors" style={{ borderColor: selected ? "#8B0000" : "#E8DFC8", backgroundColor: selected ? "#8B0000" : "#FAF8F5", color: selected ? "#FAF8F5" : "#3E2A24", fontFamily: '"Poppins", sans-serif' }}>
               {option}
             </button>
           );
         })}
-        <input type="text" value={customAnswer} onChange={(event) => changeCustomAnswer(event.target.value)} onFocus={() => { if (!customAnswer.trim()) setAnswers((current) => current.map((answer, answerIndex) => answerIndex === index ? "" : answer)); }} placeholder={question.customPlaceholder} className="w-full rounded-xl border px-4 py-3 text-sm outline-none" style={{ borderColor: customAnswer.trim() ? "#8B0000" : "#E8DFC8", color: "#3E2A24", backgroundColor: "#FAF8F5", fontFamily: '"Georgia", serif' }} />
+        <input type="text" value={customAnswer} onChange={(event) => changeCustomAnswer(event.target.value)} onFocus={() => { if (!customAnswer.trim()) setAnswers((current) => current.map((answer, answerIndex) => answerIndex === index ? "" : answer)); }} placeholder={question.customPlaceholder} className="w-full rounded-xl border px-4 py-3 text-sm outline-none" style={{ borderColor: customAnswer.trim() ? "#8B0000" : "#E8DFC8", color: "#3E2A24", backgroundColor: "#FAF8F5", fontFamily: '"Poppins", sans-serif' }} />
       </div>
       <div className="mt-5 flex items-center justify-between gap-3">
         <button type="button" className="text-xs underline underline-offset-4 disabled:no-underline disabled:opacity-40" style={{ color: "#85705B" }} onClick={() => setIndex((current) => current - 1)} disabled={index === 0}>Back</button>

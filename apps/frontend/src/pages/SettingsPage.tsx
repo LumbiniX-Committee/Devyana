@@ -1,25 +1,199 @@
-import { useEffect } from "react";
-import { lotusBackground } from "../lib/lotus";
+import { invoke } from "@tauri-apps/api/core";
+import {
+	Download,
+	Flower2,
+	Minus,
+	Monitor,
+	Moon,
+	Plus,
+	RotateCcw,
+	ShieldAlert,
+	Sun,
+	Trash2,
+} from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { DesktopTrackingToggle } from "../components/DesktopTracking";
+import { Switch } from "../components/Switch";
+import { lotusBackground } from "../lib/lotus";
+import {
+	MAX_FONT_SCALE,
+	MIN_FONT_SCALE,
+	type ThemePreference,
+	usePreferences,
+} from "../lib/preferences";
 
-const INK = "#5C4B3A";
-const MUTED = "#85705B";
-const SAGE = "#8B9A6E";
-const TERRACOTTA = "#C17A5A";
+const INK = "var(--ink)";
+const MUTED = "var(--muted-ink)";
+const SAGE = "var(--sage)";
+const TERRACOTTA = "var(--terracotta)";
+
+function Section({
+	title,
+	icon,
+	children,
+}: {
+	title: string;
+	icon?: ReactNode;
+	children: ReactNode;
+}) {
+	return (
+		<section
+			className="rounded-3xl border p-5 sm:p-6"
+			style={{
+				backgroundColor: "var(--surface)",
+				borderColor: "var(--border-card)",
+				boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
+			}}
+		>
+			<div className="mb-4 flex items-center gap-2">
+				{icon}
+				<h2 className="buddha-heading text-base" style={{ color: INK }}>
+					{title}
+				</h2>
+			</div>
+			{children}
+		</section>
+	);
+}
+
+function Row({
+	title,
+	description,
+	control,
+	destructive = false,
+}: {
+	title: string;
+	description: string;
+	control: ReactNode;
+	destructive?: boolean;
+}) {
+	return (
+		<div
+			className="flex items-center justify-between gap-4 rounded-xl border p-3.5"
+			style={{
+				borderColor: "var(--border-soft)",
+				backgroundColor: "var(--row)",
+			}}
+		>
+			<div className="min-w-0">
+				<p
+					className="text-sm font-medium"
+					style={{ color: destructive ? TERRACOTTA : INK }}
+				>
+					{title}
+				</p>
+				<p className="mt-0.5 text-xs leading-snug" style={{ color: MUTED }}>
+					{description}
+				</p>
+			</div>
+			{control}
+		</div>
+	);
+}
+
+const THEME_OPTIONS: {
+	value: ThemePreference;
+	label: string;
+	icon: typeof Sun;
+}[] = [
+	{ value: "light", label: "Light", icon: Sun },
+	{ value: "dark", label: "Dark", icon: Moon },
+	{ value: "system", label: "System", icon: Monitor },
+];
 
 export default function SettingsPage() {
+	const {
+		theme,
+		fontScale,
+		remindersEnabled,
+		weeklyReflectionEnabled,
+		negativeAlertsEnabled,
+		setTheme,
+		incrementFontScale,
+		decrementFontScale,
+		resetFontScale,
+		setRemindersEnabled,
+		setWeeklyReflectionEnabled,
+		setNegativeAlertsEnabled,
+	} = usePreferences();
+
+	const [exportBusy, setExportBusy] = useState(false);
+	const [clearBusy, setClearBusy] = useState(false);
+
 	useEffect(() => {
 		document.body.setAttribute("data-buddha-theme", "");
 		return () => document.body.removeAttribute("data-buddha-theme");
 	}, []);
 
+	const handleTheme = (value: ThemePreference) => {
+		setTheme(value);
+	};
+
+	const handleExport = async () => {
+		setExportBusy(true);
+		try {
+			const archive = await invoke<string>("export_data");
+			const blob = new Blob([archive], { type: "application/json" });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			const stamp = new Date().toISOString().slice(0, 19).split(":").join("-");
+			a.href = url;
+			a.download = `vinaya-export-${stamp}.json`;
+			a.click();
+			URL.revokeObjectURL(url);
+			toast.success("Your data archive has been downloaded");
+		} catch (error) {
+			console.error("Export failed:", error);
+			toast.error("Could not export your data. Please try again.");
+		} finally {
+			setExportBusy(false);
+		}
+	};
+
+	const handleClearAll = async () => {
+		if (
+			!window.confirm(
+				"This permanently deletes every session, task, reminder, and your profile. This cannot be undone. Continue?",
+			)
+		) {
+			return;
+		}
+		setClearBusy(true);
+		try {
+			await invoke("clear_all_data");
+			[
+				"user_profile_id",
+				"vinaya_onboarded",
+				"onboarding_completed",
+				"vinaya_name",
+				"vinaya_role",
+				"vinaya_goal",
+				"vinaya_gender",
+				"vinaya_age",
+			].forEach((key) => {
+				localStorage.removeItem(key);
+			});
+			localStorage.removeItem("vinaya_preferences");
+			toast.success("All data cleared");
+			window.location.href = "/";
+		} catch (error) {
+			console.error("Clear failed:", error);
+			toast.error("Could not clear your data. Please try again.");
+		} finally {
+			setClearBusy(false);
+		}
+	};
+
+	const fontPercent = Math.round(fontScale * 100);
+
 	return (
 		<div
 			className="relative min-h-screen w-full"
 			style={{
-				backgroundColor: "#FBF7F0",
+				backgroundColor: "var(--page)",
 				backgroundImage: lotusBackground({
-					stroke: "#D4A853",
+					stroke: "var(--terracotta)",
 					opacity: 0.07,
 					size: 140,
 				}),
@@ -37,223 +211,240 @@ export default function SettingsPage() {
 									opacity: 0.85,
 									size: 44,
 								}),
-								backgroundColor: "#FDF8F2",
+								backgroundColor: "var(--surface)",
 								border: "1px solid rgba(212, 168, 83, 0.18)",
 							}}
 							aria-hidden
 						>
-							<svg
-								width="24"
-								height="24"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="#D4A853"
-								strokeWidth="2"
-								strokeLinecap="round"
-								strokeLinejoin="round"
+							<Flower2
+								size={22}
+								style={{ color: "#D4A853" }}
 								aria-hidden="true"
-							>
-								<circle cx="12" cy="12" r="3" />
-								<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-							</svg>
+							/>
 						</div>
 						<div>
-							<h1 className="buddha-heading text-2xl leading-tight" style={{ color: INK }}>
+							<h1
+								className="buddha-heading text-2xl leading-tight"
+								style={{ color: INK }}
+							>
 								Settings
 							</h1>
 							<p className="text-xs" style={{ color: MUTED }}>
-								Adjust how Frocus serves your practice.
+								Adjust how Vinaya serves your practice.
 							</p>
 						</div>
 					</div>
 				</header>
 
 				<div className="flex flex-col gap-4">
-					<section
-						className="rounded-3xl border p-5 sm:p-6"
-						style={{
-							backgroundColor: "#FDF8F2",
-							borderColor: "rgba(92, 75, 58, 0.16)",
-							boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
-						}}
-					>
-						<h2 className="buddha-heading text-base mb-4" style={{ color: INK }}>
-							Tracking
-						</h2>
+					<Section title="Tracking">
 						<DesktopTrackingToggle />
-					</section>
+					</Section>
 
-					<section
-						className="rounded-3xl border p-5 sm:p-6"
-						style={{
-							backgroundColor: "#FDF8F2",
-							borderColor: "rgba(92, 75, 58, 0.16)",
-							boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
-						}}
-					>
-						<h2 className="buddha-heading text-base mb-4" style={{ color: INK }}>
-							Appearance
-						</h2>
-						<div className="grid gap-4 sm:grid-cols-2">
-							<div className="flex items-center justify-between rounded-xl border p-3"
-								style={{ borderColor: "rgba(92, 75, 58, 0.12)", backgroundColor: "#FBF7F0" }}>
-								<div>
-									<p className="text-sm font-medium" style={{ color: INK }}>Theme</p>
-									<p className="text-xs mt-0.5" style={{ color: MUTED }}>Light, dark, or system</p>
-								</div>
-								<button
-									type="button"
-									className="rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
-									style={{ borderColor: SAGE, color: SAGE }}
-								>
-									System
-								</button>
-							</div>
-							<div className="flex items-center justify-between rounded-xl border p-3"
-								style={{ borderColor: "rgba(92, 75, 58, 0.12)", backgroundColor: "#FBF7F0" }}>
-								<div>
-									<p className="text-sm font-medium" style={{ color: INK }}>Font Scale</p>
-									<p className="text-xs mt-0.5" style={{ color: MUTED }}>Adjust text size globally</p>
-								</div>
-								<div className="flex items-center gap-2">
-									<button className="grid h-8 w-8 place-items-center rounded-full border text-sm"
-										style={{ borderColor: "rgba(92, 75, 58, 0.2)", color: INK }}>-</button>
-									<span className="w-10 text-center text-sm font-medium" style={{ color: INK }}>100%</span>
-									<button className="grid h-8 w-8 place-items-center rounded-full border text-sm"
-										style={{ borderColor: "rgba(92, 75, 58, 0.2)", color: INK }}>+</button>
-								</div>
-							</div>
-						</div>
-					</section>
-
-					<section
-						className="rounded-3xl border p-5 sm:p-6"
-						style={{
-							backgroundColor: "#FDF8F2",
-							borderColor: "rgba(92, 75, 58, 0.16)",
-							boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
-						}}
-					>
-						<h2 className="buddha-heading text-base mb-4" style={{ color: INK }}>
-							Notifications
-						</h2>
+					<Section title="Appearance">
 						<div className="space-y-3">
-							<label className="flex items-center justify-between cursor-pointer">
-								<div>
-									<p className="text-sm font-medium" style={{ color: INK }}>Mindful Reminders</p>
-									<p className="text-xs mt-0.5" style={{ color: MUTED }}>Gentle nudges throughout the day</p>
-								</div>
-								<button
-									type="button"
-									role="switch"
-									aria-checked={true}
-									className="relative h-6 w-11 shrink-0 rounded-full transition-colors"
-									style={{ backgroundColor: SAGE }}
-								>
-									<span className="absolute top-0.5 left-[calc(100%-1.75rem)] h-5 w-5 rounded-full bg-white shadow-sm" />
-								</button>
-							</label>
-							<label className="flex items-center justify-between cursor-pointer">
-								<div>
-									<p className="text-sm font-medium" style={{ color: INK }}>Weekly Reflection</p>
-									<p className="text-xs mt-0.5" style={{ color: MUTED }}>Sunday evening summary</p>
-								</div>
-								<button
-									type="button"
-									role="switch"
-									aria-checked={true}
-									className="relative h-6 w-11 shrink-0 rounded-full transition-colors"
-									style={{ backgroundColor: SAGE }}
-								>
-									<span className="absolute top-0.5 left-[calc(100%-1.75rem)] h-5 w-5 rounded-full bg-white shadow-sm" />
-								</button>
-							</label>
-							<label className="flex items-center justify-between cursor-pointer">
-								<div>
-									<p className="text-sm font-medium" style={{ color: INK }}>Negative Works Alerts</p>
-									<p className="text-xs mt-0.5" style={{ color: MUTED }}>When unwholesome patterns exceed threshold</p>
-								</div>
-								<button
-									type="button"
-									role="switch"
-									aria-checked={false}
-									className="relative h-6 w-11 shrink-0 rounded-full transition-colors"
-									style={{ backgroundColor: "#E7DECE" }}
-								>
-									<span className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm" />
-								</button>
-							</label>
+							<Row
+								title="Theme"
+								description="Light, dark, or follow your system"
+								control={
+									<div
+										className="flex shrink-0 rounded-full p-1"
+										style={{
+											backgroundColor: "var(--row)",
+											border: "1px solid var(--border-soft)",
+										}}
+									>
+										{THEME_OPTIONS.map((option) => {
+											const active = theme === option.value;
+											const Icon = option.icon;
+											return (
+												<button
+													key={option.value}
+													type="button"
+													onClick={() => handleTheme(option.value)}
+													className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+													style={{
+														backgroundColor: active
+															? "var(--sage)"
+															: "transparent",
+														color: active ? "#FFFFFF" : "var(--muted-ink)",
+														boxShadow: active
+															? "0 2px 6px rgba(0,0,0,0.15)"
+															: undefined,
+													}}
+													aria-pressed={active}
+												>
+													<Icon
+														size={13}
+														strokeWidth={2.2}
+														aria-hidden="true"
+													/>
+													{option.label}
+												</button>
+											);
+										})}
+									</div>
+								}
+							/>
+							<Row
+								title="Font Scale"
+								description="Adjust text size globally"
+								control={
+									<div className="flex shrink-0 items-center gap-2">
+										<button
+											type="button"
+											onClick={decrementFontScale}
+											disabled={fontScale <= MIN_FONT_SCALE}
+											className="grid h-9 w-9 place-items-center rounded-full border transition-colors hover:bg-[var(--row)] disabled:cursor-not-allowed disabled:opacity-40"
+											style={{
+												borderColor: "var(--hairline)",
+												color: INK,
+												background: "var(--surface)",
+											}}
+											aria-label="Decrease font size"
+										>
+											<Minus size={15} aria-hidden="true" />
+										</button>
+										<span
+											className="w-12 text-center text-sm font-semibold tabular-nums"
+											style={{ color: INK }}
+										>
+											{fontPercent}%
+										</span>
+										<button
+											type="button"
+											onClick={incrementFontScale}
+											disabled={fontScale >= MAX_FONT_SCALE}
+											className="grid h-9 w-9 place-items-center rounded-full transition-colors hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+											style={{
+												backgroundColor: "var(--sage)",
+												color: "#FFFFFF",
+												boxShadow: "0 2px 8px rgba(92, 75, 58, 0.2)",
+											}}
+											aria-label="Increase font size"
+										>
+											<Plus size={15} aria-hidden="true" />
+										</button>
+										<button
+											type="button"
+											onClick={resetFontScale}
+											disabled={fontScale === 1}
+											className="grid h-9 w-9 place-items-center rounded-full border transition-colors hover:bg-[var(--row)] disabled:cursor-not-allowed disabled:opacity-40"
+											style={{ borderColor: "var(--hairline)", color: MUTED }}
+											aria-label="Reset font size"
+										>
+											<RotateCcw size={14} aria-hidden="true" />
+										</button>
+									</div>
+								}
+							/>
 						</div>
-					</section>
+					</Section>
 
-					<section
-						className="rounded-3xl border p-5 sm:p-6"
-						style={{
-							backgroundColor: "#FDF8F2",
-							borderColor: "rgba(92, 75, 58, 0.16)",
-							boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
-						}}
+					<Section
+						title="Notifications"
+						icon={<ShieldAlert size={16} style={{ color: SAGE }} />}
 					>
-						<h2 className="buddha-heading text-base mb-4" style={{ color: INK }}>
-							Data & Privacy
-						</h2>
 						<div className="space-y-3">
-							<button
-								type="button"
-								className="w-full flex items-center justify-between rounded-xl border p-3 text-left transition-colors hover:bg-[#F2EADB]"
-								style={{ borderColor: "rgba(92, 75, 58, 0.12)", backgroundColor: "#FBF7F0" }}
-							>
-								<div>
-									<p className="text-sm font-medium" style={{ color: INK }}>Export My Data</p>
-									<p className="text-xs mt-0.5" style={{ color: MUTED }}>Download a JSON archive</p>
-								</div>
-								<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2" aria-hidden="true">
-									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-									<polyline points="7 10 12 15 17 10" />
-									<line x1="12" y1="15" x2="12" y2="3" />
-								</svg>
-							</button>
-							<button
-								type="button"
-								className="w-full flex items-center justify-between rounded-xl border p-3 text-left transition-colors hover:bg-[#F2EADB]"
-								style={{ borderColor: "rgba(92, 75, 58, 0.12)", backgroundColor: "#FBF7F0" }}
-							>
-								<div>
-									<p className="text-sm font-medium" style={{ color: INK }}>Clear All Data</p>
-									<p className="text-xs mt-0.5" style={{ color: MUTED }}>Permanently delete everything</p>
-								</div>
-								<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={TERRACOTTA} strokeWidth="2" aria-hidden="true">
-									<polyline points="3 6 5 6 21 6" />
-									<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-								</svg>
-							</button>
+							<Row
+								title="Mindful Reminders"
+								description="Gentle nudges throughout the day"
+								control={
+									<Switch
+										checked={remindersEnabled}
+										onCheckedChange={setRemindersEnabled}
+										aria-label="Toggle mindful reminders"
+									/>
+								}
+							/>
+							<Row
+								title="Weekly Reflection"
+								description="Sunday evening summary"
+								control={
+									<Switch
+										checked={weeklyReflectionEnabled}
+										onCheckedChange={setWeeklyReflectionEnabled}
+										aria-label="Toggle weekly reflection"
+									/>
+								}
+							/>
+							<Row
+								title="Negative Works Alerts"
+								description="When unwholesome patterns exceed threshold"
+								control={
+									<Switch
+										checked={negativeAlertsEnabled}
+										onCheckedChange={setNegativeAlertsEnabled}
+										aria-label="Toggle negative works alerts"
+									/>
+								}
+							/>
 						</div>
-					</section>
+					</Section>
 
-					<section
-						className="rounded-3xl border p-5 sm:p-6"
-						style={{
-							backgroundColor: "#FDF8F2",
-							borderColor: "rgba(92, 75, 58, 0.16)",
-							boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
-						}}
-					>
-						<h2 className="buddha-heading text-base mb-4" style={{ color: INK }}>
-							About
-						</h2>
-						<div className="space-y-2 text-sm" style={{ color: MUTED, fontFamily: '"Georgia", serif' }}>
-							<p>Frocus — Digital Vinaya Companion</p>
+					<Section title="Data & Privacy">
+						<div className="space-y-3">
+							<Row
+								title="Export My Data"
+								description="Download a JSON archive of everything"
+								control={
+									<button
+										type="button"
+										disabled={exportBusy}
+										onClick={() => void handleExport()}
+										className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-colors disabled:opacity-50"
+										style={{
+											backgroundColor: "var(--row)",
+											border: "1px solid var(--border-soft)",
+											color: INK,
+										}}
+									>
+										<Download size={14} aria-hidden="true" />
+										{exportBusy ? "Exporting…" : "Export"}
+									</button>
+								}
+							/>
+							<Row
+								title="Clear All Data"
+								description="Permanently delete everything"
+								destructive
+								control={
+									<button
+										type="button"
+										disabled={clearBusy}
+										onClick={() => void handleClearAll()}
+										className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors hover:brightness-95 disabled:opacity-50"
+										style={{
+											backgroundColor: TERRACOTTA,
+											color: "#FFFFFF",
+										}}
+									>
+										<Trash2 size={14} aria-hidden="true" />
+										{clearBusy ? "Clearing…" : "Clear"}
+									</button>
+								}
+							/>
+						</div>
+					</Section>
+
+					<Section title="About">
+						<div
+							className="space-y-2 text-sm"
+							style={{ color: MUTED, fontFamily: '"Poppins", sans-serif' }}
+						>
+							<p>Vinaya</p>
 							<p>Version 0.1.0 (Hackathon Build)</p>
 							<p>Built with React, Tauri, and compassion</p>
 						</div>
-					</section>
+					</Section>
 				</div>
 
 				<footer
 					className="pt-2 pb-4 text-center text-xs"
-					style={{ color: MUTED, fontFamily: '"Georgia", serif' }}
+					style={{ color: MUTED, fontFamily: '"Poppins", sans-serif' }}
 				>
-					&ldquo;Your work is to discover your world and then with all your heart give yourself to it.&rdquo; — the Buddha
+					&ldquo;Your work is to discover your world and then with all your
+					heart give yourself to it.&rdquo; — the Buddha
 				</footer>
 			</div>
 		</div>

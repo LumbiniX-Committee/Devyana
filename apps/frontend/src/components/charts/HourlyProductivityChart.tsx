@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import dayjs, { type Dayjs } from "dayjs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-
+import { useChartPalette } from "../../lib/chartPalette";
 import { cn } from "../../lib/utils";
 
 /** One `session_end` block, straight from the `get_timeline` command. */
@@ -34,18 +34,7 @@ const COL_W = 100 / COLS;
 const BAR_W = COL_W * 0.52;
 const BAR_MIN_HEIGHT_PX = 3;
 
-const FONT = '"Georgia", "Times New Roman", serif';
-
-const COLORS = {
-	ink: "#5C4B3A",
-	mutedInk: "#85705B",
-	grid: "#E0D7C6",
-	sage: "#8B9A6E",
-	terracotta: "#C17A5A",
-	gold: "#D4A853",
-	parchment: "#FBF7F0",
-	boxBorder: "rgba(92, 75, 58, 0.14)",
-};
+const FONT = '"Poppins", sans-serif';
 
 const PRODUCTIVE_CATEGORIES = [
 	"productive",
@@ -81,14 +70,17 @@ function verdictFor(category: string | null | undefined): Verdict {
 	return "Passive";
 }
 
-function colorForCategory(category: string | null | undefined): string {
+function colorForCategory(
+	category: string | null | undefined,
+	colors: ReturnType<typeof useChartPalette>,
+): string {
 	switch (verdictFor(category)) {
 		case "Good":
-			return COLORS.sage;
+			return colors.sage;
 		case "Bad":
-			return COLORS.terracotta;
+			return colors.terracotta;
 		default:
-			return COLORS.gold;
+			return colors.gold;
 	}
 }
 
@@ -137,6 +129,7 @@ interface HourlyProductivityChartProps {
 export default function HourlyProductivityChart({
 	className,
 }: HourlyProductivityChartProps) {
+	const colors = useChartPalette();
 	const [cursor, setCursor] = useState(() => dayjs().startOf("day"));
 	const [blocks, setBlocks] = useState<DayTimelineBlock[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -198,7 +191,7 @@ export default function HourlyProductivityChart({
 		<div
 			className={cn("rounded-3xl border p-5 sm:p-6", className)}
 			style={{
-				backgroundColor: COLORS.parchment,
+				backgroundColor: colors.parchment,
 				borderColor: "rgba(92, 75, 58, 0.16)",
 				boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
 			}}
@@ -207,7 +200,7 @@ export default function HourlyProductivityChart({
 				<div>
 					<h2
 						className="text-base font-semibold tracking-wide"
-						style={{ color: COLORS.ink, fontFamily: FONT }}
+						style={{ color: colors.ink, fontFamily: FONT }}
 					>
 						Today&apos;s Vinaya
 					</h2>
@@ -217,13 +210,13 @@ export default function HourlyProductivityChart({
 							onClick={() => shiftDay(-1)}
 							aria-label="Previous day"
 							className="grid h-7 w-7 place-items-center rounded-full transition-colors hover:bg-black/5"
-							style={{ color: COLORS.ink }}
+							style={{ color: colors.ink }}
 						>
 							<ChevronLeft className="h-4 w-4" />
 						</button>
 						<span
 							className="text-xs"
-							style={{ color: COLORS.ink, opacity: 0.65, fontFamily: FONT }}
+							style={{ color: colors.ink, opacity: 0.65, fontFamily: FONT }}
 						>
 							{cursor.format("ddd, D MMM YYYY")}
 						</span>
@@ -233,7 +226,7 @@ export default function HourlyProductivityChart({
 							disabled={isToday}
 							aria-label="Next day"
 							className="grid h-7 w-7 place-items-center rounded-full transition-colors hover:bg-black/5 disabled:opacity-30"
-							style={{ color: COLORS.ink }}
+							style={{ color: colors.ink }}
 						>
 							<ChevronRight className="h-4 w-4" />
 						</button>
@@ -243,7 +236,7 @@ export default function HourlyProductivityChart({
 							disabled={isToday}
 							className="rounded-full border px-2 py-0.5 text-[11px] transition-colors hover:bg-black/5 disabled:opacity-30"
 							style={{
-								color: COLORS.ink,
+								color: colors.ink,
 								borderColor: "rgba(224, 215, 198, 1)",
 								fontFamily: FONT,
 							}}
@@ -255,26 +248,26 @@ export default function HourlyProductivityChart({
 
 				<div
 					className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]"
-					style={{ color: COLORS.mutedInk }}
+					style={{ color: colors.mutedInk }}
 				>
 					<span className="flex items-center gap-1.5">
 						<span
 							className="h-2.5 w-2.5 rounded-full"
-							style={{ backgroundColor: COLORS.sage }}
+							style={{ backgroundColor: colors.sage }}
 						/>
 						Good
 					</span>
 					<span className="flex items-center gap-1.5">
 						<span
 							className="h-2.5 w-2.5 rounded-full"
-							style={{ backgroundColor: COLORS.gold }}
+							style={{ backgroundColor: colors.gold }}
 						/>
 						Passive
 					</span>
 					<span className="flex items-center gap-1.5">
 						<span
 							className="h-2.5 w-2.5 rounded-full"
-							style={{ backgroundColor: COLORS.terracotta }}
+							style={{ backgroundColor: colors.terracotta }}
 						/>
 						Bad
 					</span>
@@ -291,14 +284,14 @@ export default function HourlyProductivityChart({
 			) : loading && blocks.length === 0 ? (
 				<div
 					className="flex h-72 items-center justify-center text-sm"
-					style={{ color: COLORS.ink, opacity: 0.55, fontFamily: FONT }}
+					style={{ color: colors.ink, opacity: 0.55, fontFamily: FONT }}
 				>
 					Sitting with the data…
 				</div>
 			) : visible.length === 0 ? (
 				<div
 					className="flex h-64 flex-col items-center justify-center gap-2 text-sm"
-					style={{ color: COLORS.ink, opacity: 0.55, fontFamily: FONT }}
+					style={{ color: colors.ink, opacity: 0.55, fontFamily: FONT }}
 				>
 					No sessions in the ±6 h window around {dayjs(centerMs).format("h A")}.
 				</div>
@@ -306,7 +299,7 @@ export default function HourlyProductivityChart({
 				<div className="flex flex-col gap-3">
 					<p
 						className="text-xs"
-						style={{ color: COLORS.mutedInk, fontFamily: FONT }}
+						style={{ color: colors.mutedInk, fontFamily: FONT }}
 					>
 						{visible.length} sessions across {summary.siteCount}{" "}
 						{summary.siteCount === 1 ? "site" : "sites"}
@@ -316,8 +309,11 @@ export default function HourlyProductivityChart({
 					</p>
 
 					<div
-						className="rounded-2xl border bg-white/60 px-4 py-4"
-						style={{ borderColor: COLORS.boxBorder }}
+						className="rounded-2xl border px-4 py-4"
+						style={{
+							borderColor: colors.boxBorder,
+							backgroundColor: colors.plotBg,
+						}}
 					>
 						<div className="flex gap-3">
 							{/* Y axis labels (minutes past the hour) */}
@@ -331,7 +327,7 @@ export default function HourlyProductivityChart({
 										className="absolute right-1 -translate-y-1/2 text-[10px] leading-none"
 										style={{
 											bottom: `calc(${((value / 60) * PLOT_HEIGHT).toFixed(1)}px)`,
-											color: COLORS.mutedInk,
+											color: colors.mutedInk,
 											fontFamily: FONT,
 										}}
 									>
@@ -340,7 +336,7 @@ export default function HourlyProductivityChart({
 								))}
 								<span
 									className="absolute -right-0.5 bottom-0 text-[10px]"
-									style={{ color: COLORS.mutedInk, fontFamily: FONT }}
+									style={{ color: colors.mutedInk, fontFamily: FONT }}
 								>
 									min
 								</span>
@@ -361,8 +357,8 @@ export default function HourlyProductivityChart({
 												left: `${(i * COL_W).toFixed(2)}%`,
 												borderColor:
 													i === 0 || i === COLS
-														? COLORS.grid
-														: `${COLORS.grid}55`,
+														? colors.grid
+														: `${colors.grid}55`,
 											}}
 										/>
 									))}
@@ -373,7 +369,7 @@ export default function HourlyProductivityChart({
 										style={{
 											left: `${((COLS / 2) * COL_W).toFixed(2)}%`,
 											width: `${COL_W.toFixed(2)}%`,
-											backgroundColor: `${COLORS.sage}12`,
+											backgroundColor: `${colors.sage}12`,
 										}}
 									/>
 
@@ -385,13 +381,13 @@ export default function HourlyProductivityChart({
 											style={{
 												bottom: `${((value / 60) * PLOT_HEIGHT).toFixed(1)}px`,
 												borderColor:
-													value === 0 ? COLORS.grid : `${COLORS.grid}66`,
+													value === 0 ? colors.grid : `${colors.grid}66`,
 											}}
 										/>
 									))}
 
 									{visible.map((block) => {
-										const color = colorForCategory(block.aiCategory);
+										const color = colorForCategory(block.aiCategory, colors);
 										const verdict = verdictFor(block.aiCategory);
 										const idx = Math.floor(
 											(block.startedAt - window.start) / HOUR_MS,
@@ -480,7 +476,7 @@ export default function HourlyProductivityChart({
 												className="absolute -translate-x-1/2 text-[10px] leading-none"
 												style={{
 													left: `${leftPct.toFixed(2)}%`,
-													color: isCenter ? COLORS.sage : COLORS.mutedInk,
+													color: isCenter ? colors.sage : colors.mutedInk,
 													fontFamily: FONT,
 													fontWeight: isCenter ? 700 : 400,
 												}}

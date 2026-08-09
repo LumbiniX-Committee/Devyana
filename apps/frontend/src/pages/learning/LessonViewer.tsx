@@ -90,7 +90,7 @@ function TextLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["lesson"
         )}
         <span className="text-xs" style={{ color: "#85705B" }}>{speechSupported ? "Listen to the lesson" : "Read-aloud unavailable"}</span>
       </div>
-      <div className="space-y-4 text-sm leading-relaxed" style={{ color: "#5C4B3A", fontFamily: '"Georgia", "Times New Roman", serif' }}>
+      <div className="space-y-4 text-sm leading-relaxed" style={{ color: "#5C4B3A", fontFamily: '"Poppins", sans-serif' }}>
         {content.body?.split(/\n\n+/).map((paragraph, i) => (
           <p key={i}>{paragraph}</p>
         ))}
@@ -192,7 +192,7 @@ function LocalVideoLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["l
             {cues.map((cue, index) => (
               <button key={`${cue.start}-${cue.text}`} type="button" ref={(el) => { cueRefs.current[index] = el; }}
                 className={`w-full flex gap-3 rounded-lg p-2 text-left text-xs transition-colors ${activeCueIndex === index ? "bg-[#8B9A6E]/10" : "hover:bg-black/5"}`}
-                style={{ fontFamily: '"Georgia", "Times New Roman", serif' }}
+                style={{ fontFamily: '"Poppins", sans-serif' }}
                 onClick={() => handleCueClick(cue)}>
                 <span className="shrink-0 font-medium" style={{ color: "#8B9A6E", minWidth: "36px" }}>{formatTime(cue.start)}</span>
                 <p style={{ color: "#5C4B3A" }}>{cue.text}</p>
@@ -213,7 +213,7 @@ function QuizLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["lesson"
 }
 
 export function LessonViewer({ lesson, onClose, onComplete }: LessonViewerProps) {
-  const FONT = '"Georgia", "Times New Roman", serif';
+  const FONT = '"Poppins", sans-serif';
 
   if (!lesson) {
     return (

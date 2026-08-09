@@ -474,7 +474,7 @@ mod tests {
 
     #[tokio::test]
     async fn pending_ai_sessions_then_mark_processed_roundtrip() {
-        let dir = std::env::temp_dir().join(format!("viyana-ai-batch-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("vinaya-ai-batch-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let pool = crate::db::pool::create_pool(&dir.join("test.db"))
             .await

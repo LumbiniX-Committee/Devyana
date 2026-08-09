@@ -1,13 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -28,7 +31,7 @@
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
+    --color-muted: var(--muted-ink);
     --color-secondary-foreground: var(--secondary-foreground);
     --color-secondary: var(--secondary);
     --color-primary-foreground: var(--primary-foreground);
@@ -81,6 +84,20 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    /* Buddha palette tokens (light) */
+    --ink: #5c4b3a;
+    --muted-ink: #85705b;
+    --sage: #8b9a6e;
+    --terracotta: #c17a5a;
+    --clay: #b85c4a;
+    --page: #fbf7f0;
+    --surface: #fdf8f2;
+    --row: #f7f0e2;
+    --track-off: #e7dece;
+    --hairline: #e0d7c6;
+    --border-soft: rgba(92, 75, 58, 0.12);
+    --border-card: rgba(92, 75, 58, 0.16);
+    --nav-muted: #b0a090;
 }
 
 .dark {
@@ -115,6 +132,20 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    /* Buddha palette tokens (dark) */
+    --ink: #efe6d4;
+    --muted-ink: #b3a48c;
+    --sage: #a4b488;
+    --terracotta: #d18e6b;
+    --clay: #d4755f;
+    --page: #16110b;
+    --surface: #221a12;
+    --row: #2b2218;
+    --track-off: #4c4234;
+    --hairline: rgba(244, 236, 222, 0.14);
+    --border-soft: rgba(244, 236, 222, 0.1);
+    --border-card: rgba(244, 236, 222, 0.16);
+    --nav-muted: #8f8270;
 }
 
 @layer base {

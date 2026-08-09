@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import classNames from 'classnames';
 import { Link, useLocation } from 'react-router-dom';
+import logo from '../assets/logo.png';
 
 export default function Header() {
     const [scrolled, setScrolled] = useState(false);
@@ -37,8 +38,8 @@ export default function Header() {
             >
                 <div className="flex items-center gap-12">
                     <Link to="/" className="font-serif text-white font-bold tracking-widest text-xl flex items-center gap-2 group">
-                        <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center font-serif italic text-lg group-hover:bg-brand-gold transition-colors">L</div>
-                        <span>LUMBINIX</span>
+                        <img src={logo} alt="Vinaya" className="w-8 h-8 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                        <span>VINAYA</span>
                     </Link>
                     <nav className="hidden lg:flex gap-8 text-sm font-sans text-white/80">
                         {navItems.map(item => (

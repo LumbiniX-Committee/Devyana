@@ -3,7 +3,7 @@ import type { ApexOptions } from "apexcharts";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import ApexChart from "react-apexcharts";
-
+import { useChartPalette } from "../../lib/chartPalette";
 import { cn } from "../../lib/utils";
 
 export interface DailyBehavior {
@@ -12,22 +12,11 @@ export interface DailyBehavior {
 	distractingMinutes: number;
 }
 
-const FONT = '"Georgia", "Times New Roman", serif';
+const FONT = '"Poppins", sans-serif';
 
 function minutesOrZero(value: number): number {
 	return Number.isFinite(value) ? value : 0;
 }
-
-const COLORS = {
-	ink: "#5C4B3A",
-	mutedInk: "#85705B",
-	grid: "#E0D7C6",
-	sage: "#8B9A6E",
-	terracotta: "#C17A5A",
-	gold: "#D4A853",
-	parchment: "#FDF8F2",
-	tooltipBg: "#2B2116",
-};
 
 interface BehaviorTrendChartProps {
 	/** Trailing number of days to fetch. Defaults to 30. */
@@ -43,6 +32,8 @@ export default function BehaviorTrendChart({
 	className,
 }: BehaviorTrendChartProps) {
 	const effectiveDays = Math.min(days, 7);
+
+	const colors = useChartPalette();
 
 	const [data, setData] = useState<DailyBehavior[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -102,12 +93,12 @@ export default function BehaviorTrendChart({
 				fontFamily: FONT,
 				animations: { enabled: true, easing: "easeout", speed: 700 },
 			},
-			colors: [COLORS.sage, COLORS.terracotta],
+			colors: [colors.sage, colors.terracotta],
 			dataLabels: { enabled: false },
 			stroke: {
 				curve: "smooth",
 				width: [2, 2],
-				colors: [COLORS.sage, COLORS.terracotta],
+				colors: [colors.sage, colors.terracotta],
 			},
 			fill: {
 				type: "gradient",
@@ -120,11 +111,11 @@ export default function BehaviorTrendChart({
 			},
 			markers: {
 				size: 0,
-				strokeColors: [COLORS.sage, COLORS.terracotta],
+				strokeColors: [colors.sage, colors.terracotta],
 				hover: { size: 4 },
 			},
 			grid: {
-				borderColor: COLORS.grid,
+				borderColor: colors.grid,
 				strokeDashArray: 4,
 				padding: { left: -4, right: 4 },
 			},
@@ -136,7 +127,7 @@ export default function BehaviorTrendChart({
 					rotate: -45,
 					hideOverlappingLabels: true,
 					style: {
-						colors: COLORS.mutedInk,
+						colors: colors.mutedInk,
 						fontSize: "11px",
 						fontFamily: FONT,
 					},
@@ -148,7 +139,7 @@ export default function BehaviorTrendChart({
 			yaxis: {
 				min: 0,
 				labels: {
-					style: { colors: COLORS.ink, fontSize: "12px", fontFamily: FONT },
+					style: { colors: colors.ink, fontSize: "12px", fontFamily: FONT },
 					formatter: (value: number) => `${Math.round(value)}m`,
 				},
 			},
@@ -156,10 +147,10 @@ export default function BehaviorTrendChart({
 				theme: "dark",
 				fillSeriesColor: false,
 				style: {
-					color: COLORS.gold,
+					color: colors.gold,
 					fontSize: "12px",
 					fontFamily: FONT,
-					background: COLORS.tooltipBg,
+					background: colors.tooltipBg,
 				},
 				x: {
 					formatter: (val: number) => {
@@ -176,23 +167,23 @@ export default function BehaviorTrendChart({
 			legend: {
 				position: "top",
 				horizontalAlign: "right",
-				labels: { colors: COLORS.ink },
+				labels: { colors: colors.ink },
 				fontFamily: FONT,
 				markers: { shape: "circle" },
 			},
 			noData: {
 				text: "A quiet month — nothing tracked yet",
-				style: { colors: [COLORS.mutedInk], fontFamily: FONT },
+				style: { colors: [colors.mutedInk], fontFamily: FONT },
 			},
 		}),
-		[categories, data, effectiveDays],
+		[categories, data, effectiveDays, colors],
 	);
 
 	return (
 		<section
 			className={cn("rounded-3xl border p-5 sm:p-6", className)}
 			style={{
-				backgroundColor: COLORS.parchment,
+				backgroundColor: colors.parchment,
 				borderColor: "rgba(92, 75, 58, 0.16)",
 				boxShadow: "0 14px 34px rgba(60, 40, 20, 0.09)",
 			}}
@@ -201,13 +192,13 @@ export default function BehaviorTrendChart({
 				<div>
 					<h2
 						className={cn("buddha-heading text-base")}
-						style={{ color: COLORS.ink }}
+						style={{ color: colors.ink }}
 					>
 						Your Behavior Trend
 					</h2>
 					<p
 						className="mt-1 text-xs"
-						style={{ color: COLORS.mutedInk, fontFamily: FONT }}
+						style={{ color: colors.mutedInk, fontFamily: FONT }}
 					>
 						The balance of the past {effectiveDays} days, minute by minute
 					</p>
@@ -224,7 +215,7 @@ export default function BehaviorTrendChart({
 			) : loading && data.length === 0 ? (
 				<div
 					className="flex h-72 items-center justify-center text-sm"
-					style={{ color: COLORS.mutedInk, fontFamily: FONT }}
+					style={{ color: colors.mutedInk, fontFamily: FONT }}
 				>
 					Sitting with the data…
 				</div>

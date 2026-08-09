@@ -114,9 +114,9 @@ export type ServerMessage = ServerAck | DesktopCommand;
 
 /**
  * A single suggested task shown in the Phase 2 panel of the intervention
- * overlay. Sourced from `chrome.storage.local["viyana_tasks"]` (sent by the
+ * overlay. Sourced from `chrome.storage.local["vinaya_tasks"]` (sent by the
  * desktop via the `update_tasks` command) or from a local default linking to
- * the Viyana dashboard.
+ * the Vinaya dashboard.
  */
 export type Task = {
     id: string;
