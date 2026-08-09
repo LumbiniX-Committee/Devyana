@@ -43,7 +43,13 @@ export default function DebugProfile() {
 		>
 			<Card
 				title="Profile"
-				right={<ActionButton label="Refresh" loading={loading} onClick={() => void load()} />}
+				right={
+					<ActionButton
+						label="Refresh"
+						loading={loading}
+						onClick={() => void load()}
+					/>
+				}
 			>
 				{error ? <p className="text-sm text-rose-400">{error}</p> : null}
 				{!loading && profile === null ? (
@@ -55,10 +61,12 @@ export default function DebugProfile() {
 						<Field label="Gender" value={profile.gender} />
 						<Field label="Age" value={String(profile.age)} />
 						<Field label="Profession" value={profile.profession} />
-<Field
+						<Field
 							label="Goals (JSON)"
 							value={
-								<code className="break-all text-emerald-300">{profile.goals}</code>
+								<code className="break-all text-emerald-300">
+									{profile.goals}
+								</code>
 							}
 						/>
 						<Field label="Row id" value={profile.id} />
@@ -73,7 +81,9 @@ export default function DebugProfile() {
 function Field({ label, value }: { label: string; value: string | ReactNode }) {
 	return (
 		<div className="flex flex-col gap-1">
-			<dt className="text-xs uppercase tracking-wider text-neutral-500">{label}</dt>
+			<dt className="text-xs uppercase tracking-wider text-neutral-500">
+				{label}
+			</dt>
 			<dd className="text-neutral-200">{value}</dd>
 		</div>
 	);

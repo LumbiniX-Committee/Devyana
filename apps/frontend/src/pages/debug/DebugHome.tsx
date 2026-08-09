@@ -19,14 +19,21 @@ interface SeedReport {
 	}>;
 }
 
-const FLOW_STEPS = ["Configure AI", "Seed data", "Batch classify", "Read status"];
+const FLOW_STEPS = [
+	"Configure AI",
+	"Seed data",
+	"Batch classify",
+	"Read status",
+];
 
 /** One-click demo harness: configures the mock AI, seeds 5 realistic days of
  *  browsing history, triggers a batched AI classification and reports status. */
 export default function DebugHome() {
 	const [step, setStep] = useState<number | null>(null);
 	const [results, setResults] = useState<Record<string, unknown>>({});
-	const [status, setStatus] = useState("Idle. Press “Run demo” to execute the full flow.");
+	const [status, setStatus] = useState(
+		"Idle. Press “Run demo” to execute the full flow.",
+	);
 
 	async function runDemo() {
 		setResults({});
@@ -42,7 +49,9 @@ export default function DebugHome() {
 
 			setStep(2);
 			setStatus("Triggering AI batch (awaiting classification)…");
-			const batch = await invoke<{ classified: number; n: number }>("trigger_ai_batch");
+			const batch = await invoke<{ classified: number; n: number }>(
+				"trigger_ai_batch",
+			);
 			setResults((r) => ({ ...r, batch }));
 
 			setStep(3);
@@ -51,7 +60,9 @@ export default function DebugHome() {
 			setResults((r) => ({ ...r, aiStatus }));
 
 			setStep(4);
-			setStatus("Demo complete. The dashboard and analytics below are now populated.");
+			setStatus(
+				"Demo complete. The dashboard and analytics below are now populated.",
+			);
 		} catch (err) {
 			setStep(4);
 			setStatus(`Demo failed: ${String(err)}`);
@@ -77,9 +88,9 @@ export default function DebugHome() {
 				</div>
 				<p className="text-xs text-neutral-500">
 					Points the 4 Intelligence Layer URLs at{" "}
-					<code className="text-emerald-300">http://127.0.0.1:8787</code>, seeds 5
-					realistic days of history, then flushes one compressed batch. Then check the
-					teal graph and the green dashboard.
+					<code className="text-emerald-300">http://127.0.0.1:8787</code>, seeds
+					5 realistic days of history, then flushes one compressed batch. Then
+					check the teal graph and the green dashboard.
 				</p>
 			</Card>
 
@@ -122,21 +133,27 @@ export default function DebugHome() {
 					to="/debug/db"
 				>
 					<p className="font-medium">Latest sessions</p>
-					<p className="mt-1 text-neutral-400">raw rows + 24 rules — inspect how a stop spreads.</p>
+					<p className="mt-1 text-neutral-400">
+						raw rows + 24 rules — inspect how a stop spreads.
+					</p>
 				</Link>
 				<Link
 					className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 text-sm hover:bg-neutral-900"
 					to="/debug/profile"
 				>
 					<p className="font-medium">Profile</p>
-					<p className="mt-1 text-neutral-400">DB row behind daily goals + immediately tasks.</p>
+					<p className="mt-1 text-neutral-400">
+						DB row behind daily goals + immediately tasks.
+					</p>
 				</Link>
 				<Link
 					className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 text-sm hover:bg-neutral-900"
 					to="/health"
 				>
 					<p className="font-medium">Health</p>
-					<p className="mt-1 text-neutral-400">one-screen green dashboard for judges.</p>
+					<p className="mt-1 text-neutral-400">
+						one-screen green dashboard for judges.
+					</p>
 				</Link>
 			</div>
 		</DebugShell>

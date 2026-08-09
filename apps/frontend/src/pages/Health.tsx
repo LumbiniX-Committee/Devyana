@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ActionButton, Card, DebugShell } from "./debug/ui";
 
@@ -60,7 +60,11 @@ export default function Health() {
 								{report.allOk ? "ALL SYSTEMS GO" : "ISSUES FOUND"}
 							</span>
 						) : null}
-						<ActionButton label="Re-run" loading={loading} onClick={() => void refresh()} />
+						<ActionButton
+							label="Re-run"
+							loading={loading}
+							onClick={() => void refresh()}
+						/>
 					</div>
 				}
 			>
@@ -78,7 +82,9 @@ export default function Health() {
 									<p className="text-sm font-medium">
 										{check.name.replaceAll("_", " ")}
 									</p>
-									<p className="mt-0.5 text-xs text-neutral-400">{check.detail}</p>
+									<p className="mt-0.5 text-xs text-neutral-400">
+										{check.detail}
+									</p>
 								</div>
 								{check.ok ? (
 									<CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
@@ -93,7 +99,9 @@ export default function Health() {
 
 			<Card title="Raw JSON">
 				<pre className="max-h-80 overflow-auto rounded-lg bg-neutral-950 p-3 text-xs text-emerald-200/90">
-					{report ? JSON.stringify(report, null, 2) : "Waiting for backend response…"}
+					{report
+						? JSON.stringify(report, null, 2)
+						: "Waiting for backend response…"}
 				</pre>
 			</Card>
 		</DebugShell>

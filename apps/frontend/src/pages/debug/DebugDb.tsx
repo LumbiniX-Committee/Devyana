@@ -65,7 +65,9 @@ export default function DebugDb() {
 		setLoading(true);
 		setError(undefined);
 		try {
-			setSessions(await invoke<DebugSession[]>("get_last_n_sessions", { n: 20 }));
+			setSessions(
+				await invoke<DebugSession[]>("get_last_n_sessions", { n: 20 }),
+			);
 		} catch (err) {
 			setError(String(err));
 		} finally {
@@ -84,12 +86,19 @@ export default function DebugDb() {
 		>
 			<Card
 				title={`Latest sessions (${sessions.length})`}
-				right={<ActionButton label="Refresh" loading={loading} onClick={() => void load()} />}
+				right={
+					<ActionButton
+						label="Refresh"
+						loading={loading}
+						onClick={() => void load()}
+					/>
+				}
 			>
 				{error ? <p className="text-sm text-rose-400">{error}</p> : null}
 				{!loading && sessions.length === 0 ? (
 					<p className="text-sm text-neutral-500">
-						No sessions yet. Use the Demo Harness to seed data, or press Refresh.
+						No sessions yet. Use the Demo Harness to seed data, or press
+						Refresh.
 					</p>
 				) : (
 					<div className="overflow-x-auto">
@@ -112,8 +121,12 @@ export default function DebugDb() {
 												{s.url}
 											</p>
 										</td>
-										<td className="px-2 py-2 text-neutral-300">{fmtTime(s.startedAt)}</td>
-										<td className="px-2 py-2 text-neutral-300">{fmtDuration(s.durationMs)}</td>
+										<td className="px-2 py-2 text-neutral-300">
+											{fmtTime(s.startedAt)}
+										</td>
+										<td className="px-2 py-2 text-neutral-300">
+											{fmtDuration(s.durationMs)}
+										</td>
 										<td className="px-2 py-2">
 											<span
 												className={`rounded-full px-2 py-0.5 text-xs font-medium ${toneFor(s.aiCategory)}`}

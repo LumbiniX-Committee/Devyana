@@ -129,7 +129,9 @@ export function JsonBlock({
 	);
 	return (
 		<div className="flex flex-col gap-1.5">
-			<h3 className="text-xs uppercase tracking-wider text-neutral-500">{label}</h3>
+			<h3 className="text-xs uppercase tracking-wider text-neutral-500">
+				{label}
+			</h3>
 			{body}
 		</div>
 	);
