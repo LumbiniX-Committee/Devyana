@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import dayjs from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -22,12 +22,17 @@ export interface DayTimeline {
 }
 
 const HOUR_MS = 3_600_000;
+const MINUTE_MS = 60_000;
+/** The chart always spans 12 hour-columns: current hour − 6 … current hour + 6. */
+const COLS = 12;
+/** Each column's height represents one hour (60 minutes) of the clock. */
+const PLOT_HEIGHT = 300;
+const Y_TICKS = [0, 10, 20, 30, 40, 50, 60];
 
-/** Narrowest visible block (as a % of the window) so sub-minute sessions stay
- *  traceable instead of rendering as an invisible sliver. */
-const MIN_BLOCK_WIDTH_PCT = 2.5;
-/** Cursor threshold for rendering the hostname inside a block. */
-const LABEL_WIDTH_PCT = 9;
+const COL_W = 100 / COLS;
+/** Every signal shares the same bar width inside its hour-column. */
+const BAR_W = COL_W * 0.52;
+const BAR_MIN_HEIGHT_PX = 3;
 
 const FONT = '"Georgia", "Times New Roman", serif';
 
@@ -40,7 +45,6 @@ const COLORS = {
 	gold: "#D4A853",
 	parchment: "#FBF7F0",
 	boxBorder: "rgba(92, 75, 58, 0.14)",
-	tooltipBg: "#2B2116",
 };
 
 const PRODUCTIVE_CATEGORIES = [
@@ -88,61 +92,35 @@ function colorForCategory(category: string | null | undefined): string {
 	}
 }
 
-function formatTime(epochMs: number): string {
-	return dayjs(epochMs).format("h:mm a");
-}
-
 function formatMinutes(ms: number): string {
-	const mins = ms / 60_000;
+	const mins = ms / MINUTE_MS;
 	return mins < 1 ? "<1 min" : `${Math.round(mins)} min`;
 }
 
-function minutesOrZero(value: number): number {
-	return Number.isFinite(value) ? Math.max(0, value) : 0;
-}
-
-/**
- * Greedy interval packing: assigns each session to the first row whose last
- * block ends before it starts, creating new rows only when every existing row
- * is occupied. This yields the "stack by stack" rows — back-to-back visits sit
- * side-by-side on the same track, overlapping windows cascade onto new tracks.
- */
-function layoutTracks(blocks: DayTimelineBlock[]): DayTimelineBlock[][] {
-	const sorted = [...blocks].sort(
-		(a, b) => a.startedAt - b.startedAt || a.endedAt - b.endedAt,
-	);
-	const tracks: DayTimelineBlock[][] = [];
-	for (const block of sorted) {
-		const index = tracks.findIndex(
-			(track) => track[track.length - 1].endedAt <= block.startedAt,
-		);
-		if (index >= 0) tracks[index].push(block);
-		else tracks.push([block]);
-	}
-	return tracks;
+/** The window is anchored on the selected day at the *current wall-clock hour*,
+ *  so for today it literally reads "now − 6 … now + 6", and other days show the
+ *  same clock frame of that day. */
+function windowCenter(cursorDay: Dayjs): Dayjs {
+	const nowWallClock = dayjs();
+	return cursorDay
+		.startOf("day")
+		.hour(nowWallClock.hour())
+		.minute(0)
+		.second(0)
+		.millisecond(0);
 }
 
 interface WindowRange {
 	start: number;
 	end: number;
-	spanMs: number;
 }
 
-/** True span of a day's activity, floored/ceiled to the hour for clean ticks. */
-function computeWindow(blocks: DayTimelineBlock[]): WindowRange | null {
-	let min = Number.POSITIVE_INFINITY;
-	let max = Number.NEGATIVE_INFINITY;
-	for (const block of blocks) {
-		if (block.durationMs <= 0) continue;
-		min = Math.min(min, block.startedAt);
-		max = Math.max(max, block.endedAt);
-	}
-	if (!Number.isFinite(min)) return null;
-
-	const start = Math.floor(min / HOUR_MS) * HOUR_MS;
-	let end = Math.ceil(max / HOUR_MS) * HOUR_MS;
-	if (end - start < HOUR_MS) end = start + HOUR_MS;
-	return { start, end, spanMs: end - start };
+function computeWindow(cursorDay: Dayjs): WindowRange {
+	const center = windowCenter(cursorDay);
+	return {
+		start: center.subtract(COLS / 2, "hour").valueOf(),
+		end: center.add(COLS / 2, "hour").valueOf(),
+	};
 }
 
 interface HourlyProductivityChartProps {
@@ -150,10 +128,11 @@ interface HourlyProductivityChartProps {
 }
 
 /**
- * Today's Vinaya — a single stacked-block graph of the day's tracked sessions.
- * Each website visit is a bar parked on the X-axis at `startedAt`, widened by
- * `durationMs`, sitcked onto rows so overlapping sessions don't collide, and
- * tinted by the Intelligence Layer verdict (Good / Passive / Bad).
+ * Today's Vinaya — a 12 hour-column grid around the current hour. Each visit
+ * is a fixed-width signal in the column of the HOUR it started;
+ * its Y position is the minute/second of that hour it began,
+ * and its height is how long it was used. Since apps aren't run
+ * simultaneously, signals never have to overlap.
  */
 export default function HourlyProductivityChart({
 	className,
@@ -193,28 +172,27 @@ export default function HourlyProductivityChart({
 		setCursor((c) => c.add(delta, "day"));
 	};
 
-	const window = useMemo(() => computeWindow(blocks), [blocks]);
+	const window = useMemo(() => computeWindow(cursor), [cursor]);
+	const centerMs = window.start + (COLS / 2) * HOUR_MS;
 
-	const hourTicks = useMemo(() => {
-		if (!window) return [];
-		const stepHours = Math.max(1, Math.ceil(window.spanMs / HOUR_MS / 6));
-		const ticks: number[] = [];
-		for (let t = window.start; t <= window.end; t += stepHours * HOUR_MS) {
-			ticks.push(t);
-		}
-		return ticks;
-	}, [window]);
-
-	const tracks = useMemo(() => layoutTracks(blocks), [blocks]);
+	/** Only sessions whose starting hour falls inside the 12 columns. */
+	const visible = useMemo(
+		() =>
+			blocks.filter(
+				(b) => b.startedAt >= window.start && b.startedAt < window.end,
+			),
+		[blocks, window],
+	);
 
 	const summary = useMemo(() => {
-		const totalMs = blocks.reduce(
-			(sum, b) => sum + minutesOrZero(b.durationMs),
+		const totalMs = visible.reduce(
+			(sum, b) =>
+				sum + (Number.isFinite(b.durationMs) ? Math.max(0, b.durationMs) : 0),
 			0,
 		);
-		const siteCount = new Set(blocks.map((b) => b.hostname)).size;
+		const siteCount = new Set(visible.map((b) => b.hostname)).size;
 		return { totalMs, siteCount };
-	}, [blocks]);
+	}, [visible]);
 
 	return (
 		<div
@@ -317,129 +295,208 @@ export default function HourlyProductivityChart({
 				>
 					Sitting with the data…
 				</div>
-			) : blocks.length === 0 ? (
+			) : visible.length === 0 ? (
 				<div
 					className="flex h-64 flex-col items-center justify-center gap-2 text-sm"
 					style={{ color: COLORS.ink, opacity: 0.55, fontFamily: FONT }}
 				>
-					No websites tracked this day — a deeply still one.
+					No sessions in the ±6 h window around {dayjs(centerMs).format("h A")}.
 				</div>
-			) : window ? (
+			) : (
 				<div className="flex flex-col gap-3">
 					<p
 						className="text-xs"
 						style={{ color: COLORS.mutedInk, fontFamily: FONT }}
 					>
-						{blocks.length} sessions across {summary.siteCount}{" "}
-						{summary.siteCount === 1 ? "site" : "sites"} ·{" "}
-						{formatMinutes(summary.totalMs)} tracked
+						{visible.length} sessions across {summary.siteCount}{" "}
+						{summary.siteCount === 1 ? "site" : "sites"}
+						{summary.totalMs > 0 && (
+							<> · {formatMinutes(summary.totalMs)} tracked</>
+						)}
 					</p>
 
 					<div
-						className="flex flex-col gap-2 rounded-2xl border bg-white/60 px-4 py-4"
+						className="rounded-2xl border bg-white/60 px-4 py-4"
 						style={{ borderColor: COLORS.boxBorder }}
 					>
-						<div className="mt-1 flex flex-col gap-1.5">
-							{tracks.map((track, row) => (
-								<div
-									key={track[0]?.id ?? `track-${row}`}
-									className="relative min-h-11"
-									style={{
-										height: 44,
-										backgroundImage: `linear-gradient(to right, ${COLORS.grid}21 1px, transparent 1px)`,
-										backgroundSize: `${100 / 6}% 100%`,
-										borderRadius: 10,
-									}}
+						<div className="flex gap-3">
+							{/* Y axis labels (minutes past the hour) */}
+							<div
+								className="relative w-7 shrink-0"
+								style={{ height: PLOT_HEIGHT }}
+							>
+								{Y_TICKS.map((value) => (
+									<span
+										key={value}
+										className="absolute right-1 -translate-y-1/2 text-[10px] leading-none"
+										style={{
+											bottom: `calc(${((value / 60) * PLOT_HEIGHT).toFixed(1)}px)`,
+											color: COLORS.mutedInk,
+											fontFamily: FONT,
+										}}
+									>
+										{value}
+									</span>
+								))}
+								<span
+									className="absolute -right-0.5 bottom-0 text-[10px]"
+									style={{ color: COLORS.mutedInk, fontFamily: FONT }}
 								>
-									{track.map((block) => {
+									min
+								</span>
+							</div>
+
+							{/* Plot + hour columns + X axis */}
+							<div className="min-w-0 flex-1">
+								<div
+									className="relative overflow-visible rounded-lg"
+									style={{ height: PLOT_HEIGHT }}
+								>
+									{/* Hour-column boundaries */}
+									{Array.from({ length: COLS + 1 }, (_, i) => (
+										<div
+											key={window.start + i * HOUR_MS}
+											className="absolute top-0 bottom-0 border-l border-dashed"
+											style={{
+												left: `${(i * COL_W).toFixed(2)}%`,
+												borderColor:
+													i === 0 || i === COLS
+														? COLORS.grid
+														: `${COLORS.grid}55`,
+											}}
+										/>
+									))}
+
+									{/* 'Now' column highlight */}
+									<div
+										className="absolute top-0 bottom-0"
+										style={{
+											left: `${((COLS / 2) * COL_W).toFixed(2)}%`,
+											width: `${COL_W.toFixed(2)}%`,
+											backgroundColor: `${COLORS.sage}12`,
+										}}
+									/>
+
+									{/* Minute gridlines (0..60) */}
+									{Y_TICKS.map((value) => (
+										<div
+											key={value}
+											className="absolute right-0 left-0 border-t border-dashed"
+											style={{
+												bottom: `${((value / 60) * PLOT_HEIGHT).toFixed(1)}px`,
+												borderColor:
+													value === 0 ? COLORS.grid : `${COLORS.grid}66`,
+											}}
+										/>
+									))}
+
+									{visible.map((block) => {
 										const color = colorForCategory(block.aiCategory);
 										const verdict = verdictFor(block.aiCategory);
-										const leftPct =
-											((block.startedAt - window.start) / window.spanMs) * 100;
-										const widthPct = Math.max(
-											MIN_BLOCK_WIDTH_PCT,
-											(block.durationMs / window.spanMs) * 100,
+										const idx = Math.floor(
+											(block.startedAt - window.start) / HOUR_MS,
 										);
+										const colStartMs = window.start + idx * HOUR_MS;
+										const secondsIntoHour =
+											(block.startedAt - colStartMs) / 1_000;
+										const topPx = (secondsIntoHour / 3_600) * PLOT_HEIGHT;
+										const durSec = block.durationMs / 1_000;
+										const remainingPx = PLOT_HEIGHT - topPx;
+										const capped = durSec / 3_600 > remainingPx / PLOT_HEIGHT;
+										const heightPx = Math.min(
+											remainingPx,
+											(durSec / 3_600) * PLOT_HEIGHT,
+										);
+										const leftPct = idx * COL_W + (COL_W - BAR_W) / 2;
 										return (
 											<div
 												key={block.id}
-												className="group/block absolute top-1/2 h-8 -translate-y-1/2 cursor-default"
+												className="group absolute cursor-default"
 												style={{
-													left: `${leftPct}%`,
-													width: `${widthPct}%`,
+													left: `${leftPct.toFixed(2)}%`,
+													top: `${topPx.toFixed(1)}px`,
+													width: `${BAR_W.toFixed(2)}%`,
 												}}
 											>
 												<div
-													className="flex h-full w-full items-center overflow-hidden rounded-lg border px-1.5 transition-transform group-hover/block:scale-[1.03]"
+													className="w-full border"
 													style={{
-														backgroundColor: `${color}CC`,
-														borderColor: `${color}`,
-														boxShadow: `0 6px 14px ${color}2E`,
+														height: `${Math.max(
+															BAR_MIN_HEIGHT_PX,
+															heightPx,
+														).toFixed(1)}px`,
+														backgroundColor: `${color}B3`,
+														borderColor: color,
+														boxShadow: `0 5px 12px ${color}26`,
 													}}
-												>
-													{widthPct >= LABEL_WIDTH_PCT && (
-														<span
-															className="truncate pl-0.5 text-[11px] leading-none font-medium text-white"
-															style={{
-																fontFamily: FONT,
-																textShadow: "0 1px 2px rgba(40,25,10,0.35)",
-															}}
-														>
-															{block.hostname}
-														</span>
-													)}
-												</div>
+												/>
+												{capped && (
+													<span
+														className="absolute -top-1 right-0 rounded-full px-1 text-[8px] leading-[10px] text-white"
+														style={{ backgroundColor: color }}
+														aria-hidden="true"
+													>
+														+
+													</span>
+												)}
 
-												<div className="pointer-events-none absolute top-[calc(100%+6px)] left-1/2 z-20 hidden w-max max-w-[220px] -translate-x-1/2 rounded-lg border border-white/10 bg-black/90 px-3 py-2 text-xs text-white shadow-xl group-hover/block:block">
-													<p className="flex items-center gap-1.5 font-semibold">
-														<span
-															className="h-2 w-2 shrink-0 rounded-full"
-															style={{ backgroundColor: color }}
-														/>
-														{block.hostname}
-													</p>
-													<p className="mt-1 whitespace-nowrap text-white/80">
-														{formatTime(block.startedAt)} –{" "}
-														{formatTime(block.endedAt)}
-													</p>
-													<p className="text-white/70">
-														{formatMinutes(block.durationMs)} · {verdict}
-													</p>
+												<div className="pointer-events-none absolute left-1/2 z-20 hidden w-max max-w-[220px] -translate-x-1/2 pb-1.5 group-hover:block">
+													<div
+														className="w-max max-w-[220px] rounded-lg border border-white/10 bg-black/90 px-3 py-2 text-xs text-white shadow-xl"
+														style={{ fontFamily: FONT }}
+													>
+														<p className="flex items-center gap-1.5 font-semibold">
+															<span
+																className="h-2 w-2 shrink-0 rounded-full"
+																style={{ backgroundColor: color }}
+															/>
+															{block.hostname}
+														</p>
+														<p className="mt-1 text-white/80">
+															{dayjs(block.startedAt).format("h:mm a")} ·{" "}
+															{dayjs(block.endedAt).format("h:mm a")}
+														</p>
+														<p className="text-white/70">
+															{formatMinutes(block.durationMs)}
+															{capped && " · longer than the hour"}
+															{" · "}
+															{verdict}
+														</p>
+													</div>
 												</div>
 											</div>
 										);
 									})}
 								</div>
-							))}
 
-							<div
-								className="relative"
-								style={{
-									backgroundImage: `linear-gradient(to right, ${COLORS.grid}55 1px, transparent 1px)`,
-									backgroundSize: `${100 / 6}% 100%`,
-								}}
-							>
-								{hourTicks.map((tick) => {
-									const leftPct = ((tick - window.start) / window.spanMs) * 100;
-									return (
-										<span
-											key={tick}
-											className="absolute -translate-x-1/2 pt-1 text-[10px]"
-											style={{
-												left: `${leftPct}%`,
-												color: COLORS.mutedInk,
-												fontFamily: FONT,
-											}}
-										>
-											{formatTime(tick)}
-										</span>
-									);
-								})}
+								{/* X axis: one label per hour-column */}
+								<div className="relative mt-1 h-5">
+									{Array.from({ length: COLS }, (_, idx) => {
+										const leftPct = idx * COL_W + COL_W / 2;
+										const isCenter = idx === COLS / 2;
+										return (
+											<span
+												key={window.start + idx * HOUR_MS}
+												className="absolute -translate-x-1/2 text-[10px] leading-none"
+												style={{
+													left: `${leftPct.toFixed(2)}%`,
+													color: isCenter ? COLORS.sage : COLORS.mutedInk,
+													fontFamily: FONT,
+													fontWeight: isCenter ? 700 : 400,
+												}}
+											>
+												{isCenter && isToday
+													? "Now"
+													: dayjs(window.start + idx * HOUR_MS).format("ha")}
+											</span>
+										);
+									})}
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
-			) : null}
+			)}
 		</div>
 	);
 }
