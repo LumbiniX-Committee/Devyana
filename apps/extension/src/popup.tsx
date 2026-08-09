@@ -113,10 +113,23 @@ function IndexPopup() {
 
     const fetchStatus = useCallback(async () => {
         try {
-            const data = await sendToBackground<undefined, ConnectionStatus>({ name: "get_connection_status" });
+            const data = await Promise.race([
+                sendToBackground<undefined, ConnectionStatus>({ name: "get_connection_status" }),
+                new Promise<ConnectionStatus>((_, reject) =>
+                    setTimeout(() => reject(new Error("Timeout")), 3000)
+                )
+            ]);
             setConnectionStatus(data);
         } catch (err) {
             console.error("Failed to fetch connection status:", err);
+            setConnectionStatus({
+                connected: false,
+                port: null,
+                passiveMode: false,
+                unsyncedCount: 0,
+                clientId: null,
+                browserType: "unknown"
+            });
         }
     }, []);
 
@@ -159,10 +172,16 @@ function IndexPopup() {
 
     const fetchRules = useCallback(async () => {
         try {
-            const data = await sendToBackground<undefined, { rules: LiveRule[] }>({ name: "get_rules" });
+            const data = await Promise.race([
+                sendToBackground<undefined, { rules: LiveRule[] }>({ name: "get_rules" }),
+                new Promise<{ rules: LiveRule[] }>((_, reject) =>
+                    setTimeout(() => reject(new Error("Timeout")), 3000)
+                )
+            ]);
             setRules(data.rules);
         } catch (err) {
             console.error("Failed to fetch rules:", err);
+            setRules([]);
         }
     }, []);
 
@@ -281,11 +300,10 @@ function IndexPopup() {
                 </h1>
                 <button
                     onClick={() => void fetchStatus()}
-                    disabled={loading}
                     type="button"
-                    className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] hover:bg-zinc-800 disabled:opacity-50"
+                    className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] hover:bg-zinc-800"
                 >
-                    {loading ? "⟳" : "Refresh"}
+                    Refresh
                 </button>
             </header>
 

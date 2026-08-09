@@ -7,8 +7,13 @@ interface GetRulesResponse {
 }
 
 const handler: PlasmoMessaging.MessageHandler<void, GetRulesResponse> = async (_req, res) => {
-    const rules = tracker.getRules()
-    res.send({ rules })
+    try {
+        const rules = tracker.getRules()
+        res.send({ rules: rules ?? [] })
+    } catch (error) {
+        console.error("get-rules handler error:", error)
+        res.send({ rules: [] })
+    }
 }
 
 export default handler

@@ -11,15 +11,27 @@ interface ConnectionStatusResponse {
 }
 
 const handler: PlasmoMessaging.MessageHandler<void, ConnectionStatusResponse> = async (_req, res) => {
-    const status = await desktopBridge.getStatus();
-    res.send({
-        connected: status.connected,
-        port: status.cachedWsPort,
-        passiveMode: status.passiveMode,
-        unsyncedCount: status.unsyncedCount,
-        clientId: status.clientId,
-        browserType: status.browserType
-    });
+    try {
+        const status = await desktopBridge.getStatus();
+        res.send({
+            connected: status.connected,
+            port: status.cachedWsPort,
+            passiveMode: status.passiveMode,
+            unsyncedCount: status.unsyncedCount,
+            clientId: status.clientId,
+            browserType: status.browserType
+        });
+    } catch (error) {
+        console.error("get-connection-status handler error:", error);
+        res.send({
+            connected: false,
+            port: null,
+            passiveMode: false,
+            unsyncedCount: 0,
+            clientId: null,
+            browserType: "unknown"
+        });
+    }
 };
 
 export default handler;
