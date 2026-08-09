@@ -234,12 +234,17 @@ async fn process_event(state: &AppState, client_id: Option<&str>, env: &EventEnv
             message,
             data,
         } => {
-            tracing::info!(
-                name = %name,
-                message = ?message,
-                data = ?data,
-                "system event from client"
-            );
+            if name == "ping" {
+                // Dedicated debug probe: extension's "Send Test Event" button.
+                tracing::info!("Ping received from extension (ack sent)");
+            } else {
+                tracing::info!(
+                    name = %name,
+                    message = ?message,
+                    data = ?data,
+                    "system event from client"
+                );
+            }
             true
         }
     }

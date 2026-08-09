@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, RwLock};
 
+use serde::Serialize;
 use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
 use tokio::sync::{mpsc, Mutex};
@@ -16,6 +18,51 @@ pub struct PageMetaEntry {
     pub url: String,
     pub meta: serde_json::Value,
     pub at: i64,
+}
+
+/// Tracks the most recent Intelligence Layer call so the debug and health
+/// surfaces can report reachability without re-probing the network.
+#[derive(Debug, Default)]
+pub struct AiHealth {
+    pub last_call_at_ms: AtomicI64,
+    pub last_success: AtomicBool,
+    pub last_kind: RwLock<Option<String>>,
+    pub last_error: RwLock<Option<String>>,
+}
+
+/// Serialized view of `AiHealth` for the `get_ai_status` command.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiHealthSnapshot {
+    pub last_call_at_ms: i64,
+    pub last_success: bool,
+    pub last_kind: Option<String>,
+    pub last_error: Option<String>,
+}
+
+impl AiHealth {
+    /// Records the outcome of an AI call (`kind` is e.g. `"classify"` or
+    /// `"batch"`). Never panics; best-effort bookkeeping.
+    pub fn record(&self, kind: &str, success: bool, error: Option<&str>) {
+        self.last_call_at_ms
+            .store(chrono::Utc::now().timestamp_millis(), Ordering::SeqCst);
+        self.last_success.store(success, Ordering::SeqCst);
+        if let Ok(mut guard) = self.last_kind.write() {
+            *guard = Some(kind.to_string());
+        }
+        if let Ok(mut guard) = self.last_error.write() {
+            *guard = error.map(String::from);
+        }
+    }
+
+    pub fn snapshot(&self) -> AiHealthSnapshot {
+        AiHealthSnapshot {
+            last_call_at_ms: self.last_call_at_ms.load(Ordering::SeqCst),
+            last_success: self.last_success.load(Ordering::SeqCst),
+            last_kind: self.last_kind.read().ok().and_then(|g| g.clone()),
+            last_error: self.last_error.read().ok().and_then(|g| g.clone()),
+        }
+    }
 }
 
 /// Shared application state managed by Tauri and cloned into every
@@ -35,6 +82,10 @@ pub struct AppState {
     pub ai_batch_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<()>>>>,
     /// Shared control flag for the desktop window tracker daemon.
     pub desktop_tracking: Arc<DesktopTrackingControl>,
+    /// Port the WebSocket server bound (set once it starts accepting).
+    pub ws_port: Arc<std::sync::Mutex<Option<u16>>>,
+    /// Last Intelligence Layer call outcome (classification / batch flushes).
+    pub ai_health: Arc<AiHealth>,
 }
 
 impl AppState {
@@ -65,6 +116,8 @@ impl AppState {
             ai_batch_notify,
             ai_batch_rx: Arc::new(Mutex::new(Some(ai_batch_rx))),
             desktop_tracking: Arc::new(DesktopTrackingControl::new()),
+            ws_port: Arc::new(std::sync::Mutex::new(None)),
+            ai_health: Arc::new(AiHealth::default()),
         };
 
         Ok(state)

@@ -367,11 +367,14 @@ class VinayaTracker {
                 const matchedIds = resolveRules(allMatched, this.rules)
 
                 if (matchedIds.length && ruleMap.get(matchedIds[0])?.needsMeta) {
-                    this.resolveSessionMeta(tab.id, ruleMap.get(matchedIds[0])!)
-                        .then((meta) => {
-                            if (meta && this.session) this.session.meta = meta
-                        })
-                        .catch(() => { })
+                    const primaryRule = ruleMap.get(matchedIds[0])
+                    if (primaryRule) {
+                        this.resolveSessionMeta(tab.id, primaryRule)
+                            .then((meta) => {
+                                if (meta && this.session) this.session.meta = meta
+                            })
+                            .catch(() => { })
+                    }
                 }
                 return
             }
@@ -384,7 +387,12 @@ class VinayaTracker {
             if (decision.action === "cooldown_block") {
                 this.endSession(switchAt)
                 void chrome.tabs
-                    .sendMessage(tabId, { command: "hard_block", tabId })
+                    .sendMessage(tabId, {
+                        command: "hard_block",
+                        tabId,
+                        reason: "You are in a cooldown period after a mindfulness pause.",
+                        until: decision.until,
+                    })
                     .catch(() => { })
                 return
             }
@@ -872,6 +880,14 @@ class VinayaTracker {
 
     getFocusMode() {
         return enforcement.getFocusMode()
+    }
+
+    getActiveIntervention(tabId: number) {
+        return enforcement.getActiveIntervention(tabId)
+    }
+
+    async getCooldowns() {
+        return enforcement.getCooldowns()
     }
 }
 

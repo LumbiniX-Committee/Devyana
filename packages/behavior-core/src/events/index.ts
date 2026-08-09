@@ -77,8 +77,8 @@ export type EventEnvelope = { entryId: string } & VinayaEvent;
 export type ClientMessage = HandshakeMessage | EventEnvelope;
 
 export type DesktopCommand =
-    | { command: "soft_block"; tabId: number }
-    | { command: "hard_block"; tabId: number }
+    | { command: "soft_block"; tabId: number; reason?: string; until?: number; message?: string }
+    | { command: "hard_block"; tabId: number; reason?: string; until?: number; message?: string }
     | { command: "unblock"; tabId: number }
     | { command: "pause_media"; tabId: number }
     | { command: "resume_media"; tabId: number }
@@ -87,6 +87,7 @@ export type DesktopCommand =
         tabId: number;
         message: string;
         gracePeriodMs: number;
+        reason?: string;
     }
     | { command: "update_rules"; rules: Array<Rule> }
     | { command: "update_tasks"; tasks: Array<Task> }

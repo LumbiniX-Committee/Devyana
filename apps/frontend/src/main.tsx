@@ -20,6 +20,10 @@ import System from "./domain/System";
 import Tasks from "./domain/Tasks";
 import UnifiedDashboard from "./pages/Dashboard";
 import NegativeWorksDetail from "./pages/NegativeWorksDetail";
+import Health from "./pages/Health";
+import DebugHome from "./pages/debug/DebugHome";
+import DebugDb from "./pages/debug/DebugDb";
+import DebugProfile from "./pages/debug/DebugProfile";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -46,6 +50,22 @@ const router = createBrowserRouter([
 	{
 		path: "/dashboard",
 		element: <UnifiedDashboard />,
+	},
+	{
+		path: "/health",
+		element: <Health />,
+	},
+	{
+		path: "/debug",
+		element: <DebugHome />,
+	},
+	{
+		path: "/debug/db",
+		element: <DebugDb />,
+	},
+	{
+		path: "/debug/profile",
+		element: <DebugProfile />,
 	},
 	{
 		path: "/negative-works",

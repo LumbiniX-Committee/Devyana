@@ -11,6 +11,7 @@ pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSes
     tauri::async_runtime::spawn(async move {
         match client::classify_session(&state, &session).await {
             Ok(category) => {
+                state.ai_health.record("classify", true, None);
                 tracing::info!(
                     session_id = %session.id,
                     %category,
@@ -54,6 +55,7 @@ pub fn spawn_classification(state: &AppState, session: crate::db::models::NewSes
                 });
             }
             Err(err) => {
+                state.ai_health.record("classify", false, Some(&err.to_string()));
                 tracing::warn!(session_id = %session.id, error = %err, "classification failed");
             }
         }

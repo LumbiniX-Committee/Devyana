@@ -199,6 +199,7 @@ async fn send_flush(state: &AppState, user_id: &str, sessions: Vec<Session>) -> 
     let graph = match send_batch_with_retry(state, user_id, &compressed).await {
         Some(graph) => graph,
         None => {
+            state.ai_health.record("batch", false, Some("graph update retries exhausted"));
             tracing::error!(
                 sessions = ids.len(),
                 "AI batch dropped after exhausting retries; sessions stay unprocessed"
@@ -214,6 +215,8 @@ async fn send_flush(state: &AppState, user_id: &str, sessions: Vec<Session>) -> 
     let merged = compressed.len();
     crate::db::analytics_queries::mark_sessions_processed_tx(&state.db, &ids).await?;
     log_batch(state, &ids, merged, true).await;
+
+    state.ai_health.record("batch", true, None);
 
     tracing::info!(
         user_id = %user_id,
@@ -285,6 +288,47 @@ async fn try_flush(state: &AppState) -> Result<(), String> {
 
 fn interval_for(state: &AppState) -> Duration {
     Duration::from_secs(state.settings().ai_batch_interval_secs.max(5))
+}
+
+/// Forces the AI batcher to flush immediately, bypassing the 30-minute timer
+/// and the holding-window thresholds. Drives the `trigger_ai_batch` debug
+/// command: drains every classified-but-unprocessed session through the full
+/// compress/send/persist pipeline and returns the resulting graph.
+pub async fn flush_now(state: &AppState) -> Result<serde_json::Value, String> {
+    if state.settings().ai_graph_url.trim().is_empty() {
+        return Err(
+            "AI graph URL is not configured (press \"Use mock AI\" or set aiGraphUrl)".to_string(),
+        );
+    }
+    let profile = crate::db::queries::get_profile(&state.db)
+        .await?
+        .ok_or_else(|| "no profile yet — complete onboarding first".to_string())?;
+
+    let sessions = crate::db::analytics_queries::pending_ai_sessions(&state.db, MAX_BATCH_SIZE)
+        .await?;
+    if sessions.is_empty() {
+        return Ok(serde_json::json!({
+            "flushed": 0,
+            "graphStored": false,
+            "note": "no classified + unprocessed sessions to flush (records a session and let it classify first)",
+        }));
+    }
+
+    let flushed = sessions.len();
+    send_flush(state, &profile.id, sessions).await?;
+
+    let graph = crate::db::queries::latest_behavior_graph(&state.db)
+        .await?
+        .ok_or_else(|| "behavior graph missing after flush".to_string())?;
+    let graph_data = serde_json::from_str::<serde_json::Value>(&graph.graph_data)
+        .unwrap_or_else(|_| serde_json::json!(graph.graph_data));
+
+    Ok(serde_json::json!({
+        "flushed": flushed,
+        "graphStored": true,
+        "graphVersion": graph.version,
+        "graphData": graph_data,
+    }))
 }
 
 /// Background loop: listens on both the interval tick and the

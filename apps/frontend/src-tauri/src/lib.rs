@@ -127,6 +127,16 @@ pub fn run() {
             commands::tasks::complete_task,
             commands::tasks::reopen_task,
             commands::tasks::suggest_tasks,
+            // Debug / verification suite
+            commands::debug::is_ws_running,
+            commands::debug::get_ws_port,
+            commands::debug::ping,
+            commands::debug::get_last_n_sessions,
+            commands::debug::configure_mock_ai,
+            commands::debug::seed_test_data,
+            commands::debug::trigger_ai_batch,
+            commands::debug::get_ai_status,
+            commands::debug::get_health,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

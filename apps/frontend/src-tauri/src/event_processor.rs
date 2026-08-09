@@ -23,6 +23,7 @@ pub async fn handle_session_end(state: &AppState, session: NewSession) -> Result
     tracing::info!(
         session_id = %session.id,
         client_id = %session.client_id,
+        url = %session.url,
         hostname = %session.hostname,
         duration_ms = session.duration_ms,
         aggregated_from = session.aggregated_from.unwrap_or(1),

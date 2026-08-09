@@ -273,6 +273,18 @@ export class EnforcementEngine {
         this.activeInterventions.delete(tabId)
     }
 
+    getRules(): Array<LiveRule> {
+        return Array.from(this.ruleMap.values())
+    }
+
+    getActiveIntervention(tabId: number): ActiveIntervention | undefined {
+        return this.activeInterventions.get(tabId)
+    }
+
+    async getCooldowns(): Promise<Record<string, number>> {
+        return { ...this.cooldowns }
+    }
+
     // -----------------------------------------------------------------------
     // Cooldown bookkeeping
     // -----------------------------------------------------------------------

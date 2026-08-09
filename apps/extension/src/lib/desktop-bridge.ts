@@ -1,6 +1,7 @@
 import type {
     BrowserType,
     DesktopCommand,
+    SystemEvent,
     VinayaEvent,
     ServerMessage
 } from "@vinaya/behavior-core"
@@ -31,6 +32,16 @@ type LogEntry = {
     event: VinayaEvent
     timestamp: number
     synced: boolean
+}
+
+export type BridgeStatus = {
+    connected: boolean
+    passiveMode: boolean
+    clientId: string | null
+    browserType: BrowserType
+    cachedWsPort: number | null
+    originOverride: string | null
+    unsyncedCount: number
 }
 
 function detectBrowser(): BrowserType {
@@ -232,6 +243,41 @@ class DesktopBridgeClient {
     async getUnsyncedCount(): Promise<number> {
         const log = await readLog()
         return log.filter((entry) => !entry.synced).length
+    }
+
+    /**
+     * Diagnostic snapshot for the popup debug panel. Cheap; safe to call on a
+     * timer or from the UI.
+     */
+    async getStatus(): Promise<BridgeStatus> {
+        const cached = await chrome.storage.local.get(PORT_CACHE_KEY)
+        return {
+            connected: this.connected,
+            passiveMode: this.passiveMode,
+            clientId: this.clientId,
+            browserType: this.browserType,
+            cachedWsPort: (cached[PORT_CACHE_KEY] as number | undefined) ?? null,
+            originOverride: WS_ORIGIN_OVERRIDE ?? null,
+            unsyncedCount: await this.getUnsyncedCount()
+        }
+    }
+
+    /**
+     * Emits a `system_event` / name "ping" over the bridge. The desktop logs
+     * "Ping received from extension (ack sent)" — one-click proof that the
+     * end-to-end extension → desktop path is alive.
+     */
+    async sendTestPing(): Promise<void> {
+        const ping: SystemEvent = {
+            event: "system_event",
+            name: "ping",
+            message: "debug probe from extension popup",
+            data: {
+                source: "popup",
+                at: Date.now()
+            }
+        }
+        await this.send(ping)
     }
 
     private async boot(): Promise<void> {
@@ -462,6 +508,10 @@ class DesktopBridgeClient {
 
     ensureConnect() {
         if (!this.connected && !this.reconnectTimer) this.connect()
+    }
+
+    retry(): void {
+        this.ensureConnect()
     }
 
     getClientId(): string | null {

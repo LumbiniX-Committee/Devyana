@@ -214,6 +214,8 @@ export default function Onboarding() {
 			localStorage.setItem("vinaya_onboarded", "true");
 			localStorage.setItem("onboarding_completed", "true");
 			localStorage.setItem("user_profile_id", payload.id);
+			// Verification breadcrumbs: profile persisted + onboarding done.
+			console.log("[onboarding] profile saved", payload.id, payload.gender, payload.age);
 			navigate("/app");
 		} catch (error) {
 			submittedOnce.current = false;

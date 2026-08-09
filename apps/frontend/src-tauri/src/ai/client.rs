@@ -75,7 +75,9 @@ fn ensure_configured(_settings: &AppSettings, url: &str) -> Result<(), AiError> 
     Ok(())
 }
 
-/// POSTs a JSON body to `url` and returns the parsed response.
+/// POSTs a JSON body to `url` and returns the parsed response. Logs the
+/// request URL, the HTTP status, and any transport failure at `info`/`warn`
+/// level so the debug panel can trace each AI interaction.
 async fn post_json(
     client: &Client,
     url: &str,
@@ -87,17 +89,27 @@ async fn post_json(
         request = request.header("Authorization", format!("Bearer {}", api_key.trim()));
     }
 
+    tracing::info!(%url, "AI request");
     let resp = request
         .send()
         .await
-        .map_err(|e| AiError::Request(e.to_string()))?;
+        .map_err(|e| {
+            tracing::warn!(%url, error = %e, "AI request failed");
+            AiError::Request(e.to_string())
+        })?;
+
+    let status = resp.status();
+    tracing::info!(%url, status = %status.as_u16(), "AI response");
 
     let bytes = resp
         .bytes()
         .await
         .map_err(|e| AiError::Request(e.to_string()))?;
 
-    serde_json::from_slice(&bytes).map_err(|e| AiError::Request(format!("invalid JSON: {e}")))
+    serde_json::from_slice(&bytes).map_err(|e| {
+        tracing::warn!(%url, status = %status.as_u16(), error = %e, "AI response was not valid JSON");
+        AiError::Request(format!("invalid JSON: {e}"))
+    })
 }
 
 /// Classifies a page into a category string (e.g. "youtube_educational").

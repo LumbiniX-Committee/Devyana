@@ -38,6 +38,12 @@ pub async fn run(state: AppState) {
     tracing::info!(port, "websocket server listening on 127.0.0.1");
     let _ = state.app.emit("viyana_ws_port", port);
 
+    // Publish the bound port to shared state so `is_ws_running` /
+    // `get_ws_port` / the health panel can report it.
+    if let Ok(mut guard) = state.ws_port.lock() {
+        *guard = Some(port);
+    }
+
     loop {
         match listener.accept().await {
             Ok((stream, peer)) => {

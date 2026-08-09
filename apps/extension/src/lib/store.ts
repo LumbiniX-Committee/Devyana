@@ -365,3 +365,19 @@ export async function saveInterventionCooldowns(
 ): Promise<void> {
     await chrome.storage.local.set({ [COOLDOWNS_KEY]: cooldowns })
 }
+
+export const EVENT_LOG_KEY = "vinaya_bridge_log"
+export const EVENT_LOG_TTL_MS = 30 * 24 * 60 * 60_000
+
+export async function pruneLog(): Promise<void> {
+    const cutoff = Date.now() - EVENT_LOG_TTL_MS
+    const data = await chrome.storage.local.get(EVENT_LOG_KEY)
+    const log = (data[EVENT_LOG_KEY] as Array<{ synced: boolean; timestamp: number }> | undefined) ?? []
+    const pruned = log.filter(
+        (event) => !event.synced || event.timestamp > cutoff
+    )
+
+    if (pruned.length !== log.length) {
+        await chrome.storage.local.set({ [EVENT_LOG_KEY]: pruned })
+    }
+}
