@@ -121,6 +121,7 @@ pub fn run() {
             commands::dashboard::get_user_behavior_trend,
             commands::dashboard::get_negative_works,
             commands::dashboard::get_correction_advice,
+            commands::learning::get_learning_pathway,
             commands::tasks::add_task,
             commands::tasks::update_task,
             commands::tasks::delete_task,

@@ -3,6 +3,7 @@ pub mod constraints;
 pub mod dashboard;
 pub mod debug;
 pub mod desktop_tracking;
+pub mod learning;
 pub mod notifications;
 pub mod productivity;
 pub mod profile;

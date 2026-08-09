@@ -32,6 +32,7 @@ type InterventionType = {
     description: string;
     implemented: boolean;
     params: InterventionParam[];
+    defaultParams?: Record<string, unknown>;
 };
 
 type InterventionParam = {
@@ -81,9 +82,14 @@ const INTERVENTION_TYPES: InterventionType[] = [
     {
         id: "story",
         label: "Story",
-        description: "Guided story and reflection",
+        description: "Guided story, video, and reflection",
         implemented: true,
-        params: []
+        params: [],
+        defaultParams: {
+            title: "A River Is Still a River",
+            videoUrl: "https://www.youtube.com/watch?v=GicJjS3wXGY&list=PLVuzoIVk88hhJTjHs3yrmTjf7oBouYAg_",
+            videoTitle: "A River Is Still a River | Pabbatupatthara Jataka"
+        }
     },
     {
         id: "challenge",
@@ -209,7 +215,7 @@ function IndexPopup() {
 
         setTriggering(true);
         try {
-            const params: Record<string, unknown> = {};
+            const params: Record<string, unknown> = { ...typeConfig.defaultParams };
             for (const param of typeConfig.params) {
                 const value = interventionParams[param.key] ?? param.default;
                 params[param.key] = param.type === "number" ? Number(value) : value;

@@ -1,34 +1,11 @@
-import { Check, LockKeyhole, CircleDot, Flower2, PlayCircle, BookOpen } from "lucide-react";
+import { Check, CircleDot, Flower2, PlayCircle, BookOpen } from "lucide-react";
 import { useEffect } from "react";
+import type { LessonNode, PathwayData } from "./types";
 
 const statusLabel = {
   completed: "Completed",
-  available: "Available",
-  locked: "Locked"
+  available: "Available"
 };
-
-interface LessonNode {
-  id: string;
-  title: string;
-  description: string;
-  type: "text" | "video";
-  content: {
-    body?: string;
-    audioLang?: string;
-    src?: string;
-    poster?: string;
-    subtitles?: Array<{ srclang: string; label: string; src: string; default?: boolean }>;
-  };
-  status: "locked" | "available" | "completed";
-  position: { x: number; y: number };
-}
-
-interface PathwayData {
-  id: string;
-  title: string;
-  description: string;
-  nodes: LessonNode[];
-}
 
 interface PathwayMapProps {
   pathway: PathwayData;
@@ -39,10 +16,6 @@ interface PathwayMapProps {
 function NodeIcon({ node }: { node: LessonNode }) {
   if (node.status === "completed") {
     return <Check aria-hidden="true" size={22} strokeWidth={2.4} />;
-  }
-
-  if (node.status === "locked") {
-    return <LockKeyhole aria-hidden="true" size={19} strokeWidth={2.2} />;
   }
 
   return node.type === "video" ? (
@@ -69,11 +42,9 @@ export function PathwayMap({ pathway, selectedLessonId, onSelectLesson }: Pathwa
     style.textContent = `
       .path-node-wrap { position: absolute; }
       .path-node { width: 56px; height: 56px; border-radius: 50%; border: 2px solid; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
-      .path-node:disabled { cursor: not-allowed; opacity: 0.6; }
-      .path-node:hover:not(:disabled) { transform: scale(1.1); }
+      .path-node:hover { transform: scale(1.1); }
       .path-node-completed { border-color: #8B9A6E; }
       .path-node-available { border-color: #C17A5A; }
-      .path-node-locked { border-color: #B0A090; }
       .is-selected .path-node { transform: scale(1.15); }
       .node-pulse { border-radius: 50%; animation: pulse 2s infinite; }
       @keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.1); } }
@@ -122,10 +93,6 @@ export function PathwayMap({ pathway, selectedLessonId, onSelectLesson }: Pathwa
           <span className="flex items-center gap-1.5 text-xs" style={{ color: MUTED, fontFamily: FONT }}>
             <i className="legend-dot available h-2 w-2 rounded-full" style={{ backgroundColor: TERRACOTTA }} />
             Available
-          </span>
-          <span className="flex items-center gap-1.5 text-xs" style={{ color: MUTED, fontFamily: FONT }}>
-            <i className="legend-dot locked h-2 w-2 rounded-full" style={{ backgroundColor: "#B0A090" }} />
-            Locked
           </span>
         </div>
       </div>
@@ -180,8 +147,6 @@ export function PathwayMap({ pathway, selectedLessonId, onSelectLesson }: Pathwa
 
         {pathway.nodes.map((node, index) => {
           const isSelected = selectedLessonId === node.id;
-          const isLocked = node.status === "locked";
-
           const nodeStyle: React.CSSProperties = {
             left: `${node.position.x}%`,
             top: `${node.position.y}%`,
@@ -199,15 +164,12 @@ export function PathwayMap({ pathway, selectedLessonId, onSelectLesson }: Pathwa
                 className={`path-node path-node-${node.status} ${isSelected ? "ring-2 ring-offset-2" : ""}`}
                 data-testid={`pathway-node-${node.id}`}
                 aria-label={`${node.title}. ${statusLabel[node.status]}. ${node.description}`}
-                disabled={isLocked}
-                onClick={() => !isLocked && onSelectLesson(node)}
+                onClick={() => onSelectLesson(node)}
                 style={{
                   backgroundColor: node.status === "completed" ? "rgba(139, 154, 110, 0.15)" :
-                               node.status === "available" ? "rgba(193, 122, 90, 0.15)" :
-                               "rgba(176, 160, 144, 0.1)",
+                               "rgba(193, 122, 90, 0.15)",
                   borderColor: node.status === "completed" ? SAGE :
-                               node.status === "available" ? TERRACOTTA :
-                               "#B0A090",
+                               TERRACOTTA,
                   boxShadow: isSelected ? `0 0 0 3px ${SAGE}40, 0 8px 24px rgba(60, 40, 20, 0.12)` :
                                node.status === "available" ? "0 4px 16px rgba(193, 122, 90, 0.2)" :
                                "0 4px 16px rgba(60, 40, 20, 0.08)",

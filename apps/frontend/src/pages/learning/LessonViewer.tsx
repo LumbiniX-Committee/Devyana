@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Flower2, PlayCircle, Square, Volume2, X, Captions, AlertCircle } from "lucide-react";
+import { ZenYouTubePlayer } from "./ZenYouTubePlayer";
+import type { LessonNode } from "./types";
 
 function parseTimestamp(timestamp: string) {
   const clean = timestamp.trim().replace(",", ".");
@@ -36,20 +38,7 @@ function formatTime(seconds: number) {
 }
 
 interface LessonViewerProps {
-  lesson: {
-    id: string;
-    title: string;
-    description: string;
-    type: "text" | "video";
-    status: string;
-    content: {
-      body?: string;
-      audioLang?: string;
-      src?: string;
-      poster?: string;
-      subtitles?: Array<{ srclang: string; label: string; src: string; default?: boolean }>;
-    };
-  } | null;
+  lesson: LessonNode | null;
   onClose: () => void;
   onComplete: (lessonId: string) => void;
 }
@@ -110,6 +99,14 @@ function TextLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["lesson"
 }
 
 function VideoLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["lesson"]> }) {
+  if (lesson.content.videoUrl) {
+    return <ZenYouTubePlayer videoUrl={lesson.content.videoUrl} title={lesson.content.videoTitle ?? lesson.title} playIcon="dharma" />;
+  }
+
+  return <LocalVideoLesson lesson={lesson} />;
+}
+
+function LocalVideoLesson({ lesson }: { lesson: NonNullable<LessonViewerProps["lesson"]> }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const cueRefs = useRef<Record<number, HTMLButtonElement | null>>({});
@@ -244,13 +241,13 @@ export function LessonViewer({ lesson, onClose, onComplete }: LessonViewerProps)
       <div className="mt-6 flex items-center justify-between rounded-xl border p-4" style={{ borderColor: "rgba(139, 154, 110, 0.2)", backgroundColor: "rgba(139, 154, 110, 0.05)" }}>
         <div className="min-w-0">
           <strong className="block text-sm" style={{ color: "#5C4B3A", fontFamily: FONT }}>{isCompleted ? "Completed lesson" : "Ready to continue?"}</strong>
-          <span className="text-xs" style={{ color: "#85705B", fontFamily: FONT }}>{isCompleted ? "Review this teaching any time." : "Mark complete to unlock the next step."}</span>
+          <span className="text-xs" style={{ color: "#85705B", fontFamily: FONT }}>{isCompleted ? "Review this teaching any time." : "Continue whenever you are ready. Every lesson remains open."}</span>
         </div>
         <button type="button" onClick={() => !isCompleted && onComplete(lesson.id)}
           className="shrink-0 rounded-full border px-4 py-2 text-xs font-medium transition-colors"
           style={{ borderColor: "#8B9A6E", color: "#8B9A6E", backgroundColor: "white" }}
-          aria-label={isCompleted ? "Review completed lesson" : "Mark lesson as complete"}>
-          {isCompleted ? "Review" : "Complete"}
+          aria-label={isCompleted ? "Review completed lesson" : "Continue to the next lesson"}>
+          {isCompleted ? "Review" : "Continue"}
         </button>
       </div>
     </aside>

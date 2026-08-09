@@ -759,6 +759,34 @@ pub async fn bad_activities_for_category(
         .collect())
 }
 
+/// Most frequent distracting activities provide compact, relevant context for
+/// the adaptive learning path. The query is deliberately bounded so an AI
+/// request never grows with the user's browsing history.
+pub async fn recent_learning_activities(pool: &SqlitePool) -> Result<Vec<String>, String> {
+    let ph = in_list(NEGATIVE_CATEGORIES.len());
+    let sql = format!(
+        "SELECT COALESCE(NULLIF(bad_topic, ''), ai_category) AS activity
+         FROM sessions
+         WHERE ai_category IN {ph}
+         GROUP BY COALESCE(NULLIF(bad_topic, ''), ai_category)
+         ORDER BY SUM(duration_ms) DESC, activity ASC
+         LIMIT 4"
+    );
+    let mut query = sqlx::query(&sql);
+    for category in NEGATIVE_CATEGORIES {
+        query = query.bind(category);
+    }
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("learning activity context: {e}"))?;
+
+    Ok(rows
+        .into_iter()
+        .filter_map(|row| row.try_get::<String, _>("activity").ok())
+        .collect())
+}
+
 /// Chronological session blocks for a day.
 pub async fn timeline(pool: &SqlitePool, date: &str) -> Result<Timeline, String> {
     let (start, end) = day_bounds_ms(date)?;

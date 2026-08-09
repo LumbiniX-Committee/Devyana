@@ -9,6 +9,7 @@ import type {
     Task
 } from "@vinaya/behavior-core"
 import buddhaPalmVideo from "url:~/assets/buddha-palm.mp4"
+import { ZenYouTubePlayer } from "./ZenYouTubePlayer"
 
 export const config: PlasmoCSConfig = {
     matches: ["<all_urls>"],
@@ -184,6 +185,18 @@ interface TaskComponentProps {
 
 const CHOOSE_LATER_DELAY_MS = 10_000
 
+/**
+ * A challenge counts as fulfilled (rather than skipped) when the user either
+ * finishes it on their own or the countdown simply elapses. Fulfilled
+ * challenges dismiss the overlay and reveal the website immediately instead
+ * of routing through the post-task suggestion panel.
+ */
+function isChallengeRedeemed(response: unknown): boolean {
+    if (!response || typeof response !== "object") return false
+    const record = response as Record<string, unknown>
+    return Boolean(record.challenge) && record.completed === true
+}
+
 function InterventionOverlay({
     taskType,
     params,
@@ -214,6 +227,15 @@ function InterventionOverlay({
 
     const handleTaskComplete = (response?: unknown) => {
         setTaskResult({ taskType, response })
+
+        // A fulfilled challenge is a self-contained pause: once the user has
+        // had (or taken) their time, release the overlay so the page shows.
+        if (taskType === "challenge" && isChallengeRedeemed(response)) {
+            unmountIntervention()
+            sendCompleted(tabId, true, taskType, response)
+            return
+        }
+
         setPhase("tasks")
     }
 
@@ -592,14 +614,17 @@ function QuizTask({ params, onComplete }: TaskComponentProps) {
 // Story — short guided narrative with a lesson
 // ---------------------------------------------------------------------------
 
-const DEFAULT_STORY_PARAGRAPHS = [
-    "A monk once visited his master carrying a heavy bag of books.",
-    '"I have studied every scripture," he said. "When will I find peace?"',
-    "The master picked up a cup and began pouring tea. It filled to the brim and kept spilling over.",
-    '"Stop!" cried the monk. "The cup is full — nothing more can go in!"',
-    "The master smiled. \"Exactly. Empty your cup, and then you will be ready.\"",
-    "Let go of what weighs you down. The space you create is where peace begins."
-]
+const DEFAULT_STORY = {
+    title: "A River Is Still a River",
+    videoUrl: "https://www.youtube.com/watch?v=GicJjS3wXGY&list=PLVuzoIVk88hhJTjHs3yrmTjf7oBouYAg_",
+    videoTitle: "A River Is Still a River | Pabbatupatthara Jataka",
+    paragraphs: [
+        "A river may bend around stones, narrow between cliffs, or widen into a quiet valley. Yet it remains a river.",
+        "In the same way, difficult moments can change the shape of a day without defining the whole of it.",
+        "The story asks us to meet each turn with patience instead of rushing to make it disappear.",
+        "Pause now and notice one thing that is changing. What steady quality can you bring to it?"
+    ]
+}
 
 function StoryTask({ params, onComplete }: TaskComponentProps) {
     const customParagraphs = Array.isArray(params?.paragraphs)
@@ -607,7 +632,16 @@ function StoryTask({ params, onComplete }: TaskComponentProps) {
             (paragraph): paragraph is string => typeof paragraph === "string" && Boolean(paragraph.trim())
         )
         : []
-    const paragraphs = customParagraphs.length ? customParagraphs : DEFAULT_STORY_PARAGRAPHS
+    const paragraphs = customParagraphs.length ? customParagraphs : DEFAULT_STORY.paragraphs
+    const title = typeof params?.title === "string" && params.title.trim()
+        ? params.title
+        : DEFAULT_STORY.title
+    const videoUrl = typeof params?.videoUrl === "string" && params.videoUrl.trim()
+        ? params.videoUrl
+        : DEFAULT_STORY.videoUrl
+    const videoTitle = typeof params?.videoTitle === "string" && params.videoTitle.trim()
+        ? params.videoTitle
+        : title === DEFAULT_STORY.title ? DEFAULT_STORY.videoTitle : title
     const stepSec = Math.max(
         1,
         typeof params?.stepDurationSec === "number" ? params.stepDurationSec : 6
@@ -616,6 +650,7 @@ function StoryTask({ params, onComplete }: TaskComponentProps) {
     const [remaining, setRemaining] = useState(stepSec)
     const isLast = index >= paragraphs.length - 1
     const [showFull, setShowFull] = useState(false)
+    const [showVideo, setShowVideo] = useState(true)
 
     const advance = useCallback(() => {
         if (index >= paragraphs.length - 1) {
@@ -627,7 +662,7 @@ function StoryTask({ params, onComplete }: TaskComponentProps) {
     }, [index, paragraphs.length, stepSec])
 
     useEffect(() => {
-        if (showFull) return
+        if (showFull || showVideo) return
         const timer = window.setInterval(() => {
             setRemaining((prev) => {
                 if (prev <= 1) {
@@ -638,7 +673,20 @@ function StoryTask({ params, onComplete }: TaskComponentProps) {
             })
         }, 1_000)
         return () => window.clearInterval(timer)
-    }, [advance, stepSec, showFull])
+    }, [advance, stepSec, showFull, showVideo])
+
+    if (showVideo) {
+        return (
+            <div className="task-panel story-video-panel">
+                <h1 className="tasks-eyebrow">Story</h1>
+                <p className="tasks-title">{title}</p>
+                <ZenYouTubePlayer videoUrl={videoUrl} title={videoTitle} />
+                <button type="button" className="task-primary-button" onClick={() => setShowVideo(false)}>
+                    Continue the story
+                </button>
+            </div>
+        )
+    }
 
     if (showFull) {
         return (
@@ -674,69 +722,228 @@ function StoryTask({ params, onComplete }: TaskComponentProps) {
 // Challenge — commit to a mindful action
 // ---------------------------------------------------------------------------
 
-const DEFAULT_CHALLENGES: Array<{ id: string; title: string; description: string }> = [
+type Challenge = {
+    id: string;
+    title: string;
+    description: string;
+}
+
+/**
+ * How long to wait by default (seconds) for the user to complete a challenge
+ * when the challenge text carries no explicit duration ("Drink water" vs.
+ * "Walk for 20 seconds"). When the countdown elapses the website is shown.
+ */
+const CHALLENGE_DEFAULT_SECS = 10
+
+/** Hard ceiling so a runaway number in AI text cannot pin the user forever. */
+const MAX_CHALLENGE_SECS = 3_600
+
+/**
+ * Fallback challenges used whenever the AI-supplied list is missing, empty or
+ * malformed, so a challenge intervention can never dead-end on an error.
+ * These are deliberately tiny, physical, do-it-now commitments.
+ */
+const DEFAULT_CHALLENGES: Array<Challenge> = [
     {
-        id: "no-scroll-30m",
-        title: "No mindless scrolling for 30 minutes",
-        description: "Close this tab and commit to 30 minutes of focused work before returning."
+        id: "drink-water",
+        title: "Drink a glass of water",
+        description: "Step away and drink a full glass of water. A small act of care for your body."
+    },
+    {
+        id: "walk-20s",
+        title: "Walk for 20 seconds",
+        description: "Stand up and walk for twenty seconds to reset your body and mind."
     },
     {
         id: "five-deep-breaths",
         title: "Take five deep breaths",
-        description: "Step away from the screen. Five slow, deep breaths before you continue."
+        description: "Close your eyes and take five slow, deep breaths before you continue."
+    },
+    {
+        id: "look-out-window",
+        title: "Look out the window",
+        description: "Rest your eyes on the distance for a moment and notice what is out there."
+    },
+    {
+        id: "shoulder-stretch",
+        title: "Stretch your shoulders",
+        description: "Roll your shoulders and soften your neck with a few gentle movements."
     },
     {
         id: "gratitude-note",
         title: "Write a gratitude note",
-        description: "Open a blank document and write one thing you are grateful for right now."
-    },
-    {
-        id: "stretch-break",
-        title: "Stand up and stretch",
-        description: "Get out of your chair for 2 minutes. Your body will thank you."
+        description: "Jot down one thing you are thankful for right now."
     }
 ]
 
-function ChallengeTask({ params, onComplete }: TaskComponentProps) {
-    const challenges = Array.isArray(params?.challenges)
-        ? params.challenges.flatMap((challenge, index) => {
-            if (!challenge || typeof challenge !== "object") return []
-            const candidate = challenge as Record<string, unknown>
-            if (typeof candidate.title !== "string" || !candidate.title.trim()) return []
+const DEFAULT_CHALLENGE_DESC = "Choose this challenge and return to what matters."
 
-            return [{
-                id: typeof candidate.id === "string" && candidate.id ? candidate.id : `challenge-${index}`,
-                title: candidate.title,
-                description:
-                    typeof candidate.description === "string" && candidate.description.trim()
-                        ? candidate.description
-                        : "Choose this challenge and return to what matters."
-            }]
+/**
+ * Normalises challenge input coming from the AI / desktop into a safe list of
+ * Challenge items. Accepts full objects, bare strings, a mix of both, or
+ * nothing at all — anything unusable is dropped so the UI can fall back to
+ * {@link DEFAULT_CHALLENGES} instead of crashing.
+ */
+function parseChallenges(raw: unknown): Array<Challenge> {
+    if (!Array.isArray(raw)) return []
+
+    const parsed: Array<Challenge> = []
+
+    for (let index = 0; index < raw.length; index += 1) {
+        const candidate = raw[index]
+
+        if (typeof candidate === "string") {
+            const title = candidate.trim()
+            if (title) {
+                parsed.push({ id: `challenge-${index}`, title, description: DEFAULT_CHALLENGE_DESC })
+            }
+            continue
+        }
+
+        if (!candidate || typeof candidate !== "object") continue
+
+        const record = candidate as Record<string, unknown>
+        const title = typeof record.title === "string" ? record.title.trim() : ""
+
+        if (!title) continue
+
+        parsed.push({
+            id: typeof record.id === "string" && record.id.trim() ? record.id : `challenge-${index}`,
+            title,
+            description:
+                typeof record.description === "string" && record.description.trim()
+                    ? record.description
+                    : DEFAULT_CHALLENGE_DESC
         })
-        : DEFAULT_CHALLENGES
+    }
+
+    return parsed
+}
+
+/**
+ * Reads the intended completion time out of the challenge copy — "Walk for
+ * 20 seconds" -> 20s, "Meditate for 5 minutes" -> 300s, "1 hour" -> 3600s.
+ * Numbers are matched first (largest unit first) so "2 hours" never reads as
+ * 2 minutes. Returns null when no number + unit is present so callers can
+ * fall back to {@link CHALLENGE_DEFAULT_SECS}.
+ */
+function extractChallengeSeconds(text: string): number | null {
+    const patterns: Array<{ pattern: RegExp; factor: number }> = [
+        { pattern: /(\d+)\s*(?:hours?|hrs?|h)\b/i, factor: 3_600 },
+        { pattern: /(\d+)\s*(?:minutes?|mins?|m)\b/i, factor: 60 },
+        { pattern: /(\d+)\s*(?:seconds?|secs?|s)\b/i, factor: 1 }
+    ]
+
+    for (const { pattern, factor } of patterns) {
+        const match = pattern.exec(text)
+        if (match) {
+            const value = Number.parseInt(match[1], 10)
+            if (Number.isFinite(value) && value > 0) {
+                return Math.min(value * factor, MAX_CHALLENGE_SECS)
+            }
+        }
+    }
+
+    return null
+}
+
+function formatChallengeCountdown(seconds: number): string {
+    const rounded = Math.max(0, Math.ceil(seconds))
+    const minutes = Math.floor(rounded / 60)
+    const secs = rounded % 60
+    if (minutes > 0) return `${minutes}m ${secs}s`
+    return `${rounded}s`
+}
+
+function ChallengeLotus() {
+    return (
+        <svg
+            className="challenge-lotus"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M12 22s-3-4-3-7a3 3 0 0 1 6 0c0 3-3 7-3 7Z" />
+            <path d="M12 22s3-4 3-7c0-2-2-3-3-3" />
+            <path d="M12 22s-3-4-3-7c0-2 2-3 3-3" />
+            <path d="M17.5 14.5a6 6 0 0 0-11 0" />
+        </svg>
+    )
+}
+
+function ChallengeTask({ params, onComplete }: TaskComponentProps) {
+    const challenges = parseChallenges(params?.challenges)
     const safeChallenges = challenges.length ? challenges : DEFAULT_CHALLENGES
-    const [selectedId, setSelectedId] = useState<string | null>(null)
+    const [picked, setPicked] = useState<Challenge | null>(null)
+    const [countdown, setCountdown] = useState<{ total: number; remaining: number } | null>(null)
 
-    const selected = safeChallenges.find((c) => c.id === selectedId)
+    // Keep the latest callback in a ref so the countdown effect can depend
+    // only on `picked` and never restart on a parent re-render.
+    const onCompleteRef = useRef(onComplete)
+    onCompleteRef.current = onComplete
 
-    if (selected) {
+    useEffect(() => {
+        if (!picked) {
+            setCountdown(null)
+            return
+        }
+
+        const total =
+            extractChallengeSeconds(`${picked.title} ${picked.description}`) ?? CHALLENGE_DEFAULT_SECS
+        setCountdown({ total, remaining: total })
+
+        const startedAt = Date.now()
+        const timer = window.setInterval(() => {
+            const remaining = Math.max(0, total - Math.floor((Date.now() - startedAt) / 1_000))
+            setCountdown({ total, remaining })
+
+            // Time's up: the user has had their window to complete the task,
+            // so fulfil the challenge and let the overlay reveal the website.
+            if (remaining <= 0) {
+                window.clearInterval(timer)
+                onCompleteRef.current({ challenge: picked.id, completed: true })
+            }
+        }, 250)
+
+        return () => window.clearInterval(timer)
+    }, [picked])
+
+    if (picked) {
+        const progress = countdown ? (countdown.remaining / countdown.total) * 100 : 100
         return (
-            <div className="task-panel">
-                <h1 className="tasks-eyebrow">Your Challenge</h1>
-                <p className="tasks-title">{selected.title}</p>
-                <p className="task-body">{selected.description}</p>
+            <div className="challenge-panel">
+                <div className="challenge-head">
+                    <ChallengeLotus />
+                    <div className="challenge-rule" />
+                    <p className="challenge-eyebrow">Mindful Act</p>
+                </div>
+                <h2 className="challenge-quote">&ldquo;{picked.title}&rdquo;</h2>
+                <p className="challenge-desc">{picked.description}</p>
+                <div className="challenge-timer" aria-live="polite">
+                    <span className="challenge-timer-label">Time to complete</span>
+                    <span className="challenge-timer-value">
+                        {countdown ? formatChallengeCountdown(countdown.remaining) : "—"}
+                    </span>
+                </div>
+                <div className="challenge-progress">
+                    <div className="challenge-progress-fill" style={{ width: `${progress}%` }} />
+                </div>
                 <div className="challenge-actions">
                     <button
                         type="button"
-                        className="task-primary-button"
-                        onClick={() => onComplete({ response: { challenge: selected.id, accepted: true } })}
+                        className="challenge-awaken"
+                        onClick={() => onComplete({ challenge: picked.id, completed: true })}
                     >
-                        I accept
+                        <span className="challenge-awaken-label">I'm done</span>
                     </button>
                     <button
                         type="button"
                         className="challenge-skip"
-                        onClick={() => onComplete({ response: { challenge: selected.id, accepted: false } })}
+                        onClick={() => onComplete({ challenge: picked.id, completed: false })}
                     >
                         Maybe later
                     </button>
@@ -746,16 +953,20 @@ function ChallengeTask({ params, onComplete }: TaskComponentProps) {
     }
 
     return (
-        <div className="task-panel">
-            <h1 className="tasks-eyebrow">Choose a Challenge</h1>
-            <p className="tasks-title">Pick one small commitment:</p>
+        <div className="challenge-panel">
+            <div className="challenge-head">
+                <ChallengeLotus />
+                <div className="challenge-rule" />
+                <p className="challenge-eyebrow">Mindful Act</p>
+            </div>
+            <h2 className="challenge-title">Choose a small commitment</h2>
             <div className="challenge-list">
                 {safeChallenges.map((c) => (
                     <button
                         key={c.id}
                         type="button"
                         className="challenge-card"
-                        onClick={() => setSelectedId(c.id)}
+                        onClick={() => setPicked(c)}
                     >
                         <span className="challenge-card-title">{c.title}</span>
                         <span className="challenge-card-desc">{c.description}</span>
@@ -1179,21 +1390,231 @@ const OVERLAY_STYLE = `
     margin-bottom: 0;
 }
 
+.story-video-panel {
+    width: min(620px, 92vw);
+}
+
+.zen-video-player {
+    width: 100%;
+    margin: 0 0 22px;
+    padding: 12px;
+    box-sizing: border-box;
+    background: #faf8f5;
+    box-shadow: 0 16px 34px -24px rgba(62, 42, 36, 0.6);
+}
+
+.zen-video-frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid #d4af37;
+    background: #faf8f5;
+}
+
+.zen-video-iframe,
+.zen-video-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.zen-video-iframe {
+    border: 0;
+}
+
+.zen-video-overlay {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    color: #3e2a24;
+    background: radial-gradient(circle at center, rgba(212, 175, 55, 0.16), rgba(250, 248, 245, 0) 68%), #faf8f5;
+    cursor: pointer;
+    transition: opacity 700ms ease;
+}
+
+.zen-video-overlay.is-playing {
+    pointer-events: none;
+    opacity: 0;
+}
+
+.zen-video-ring {
+    position: absolute;
+    border: 1px solid #d4af37;
+    border-radius: 50%;
+    opacity: 0.2;
+}
+
+.zen-video-ring-outer {
+    inset: 8%;
+}
+
+.zen-video-ring-inner {
+    inset: 22%;
+}
+
+.zen-video-play {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 68px;
+    height: 68px;
+    place-items: center;
+    border: 1px solid #d4af37;
+    border-radius: 50%;
+    background: #d4af37;
+    transition: transform 250ms ease, background-color 250ms ease, color 250ms ease;
+}
+
+.zen-video-overlay:hover .zen-video-play,
+.zen-video-overlay:focus-visible .zen-video-play {
+    color: #faf8f5;
+    background: #8b0000;
+    border-color: #8b0000;
+    transform: scale(1.06);
+}
+
+.zen-video-marker {
+    width: 36px;
+    height: 1px;
+    margin: 12px auto 0;
+    background: #d4af37;
+}
+
+.zen-video-unavailable {
+    margin: 0 0 22px;
+    padding: 14px;
+    color: #6b5847;
+    border: 1px solid #e8dfc8;
+    background: #f1efe7;
+}
+
+.challenge-panel {
+    box-sizing: border-box;
+    width: min(460px, 90vw);
+    max-height: 92vh;
+    overflow-y: auto;
+    padding: 40px 44px;
+    background: #faf8f5;
+    border: 1px solid #e8dfc8;
+    border-radius: 2px;
+    color: #3e2a24;
+    font-family: Georgia, "Times New Roman", serif;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(62, 42, 36, 0.35), 0 1px 2px rgba(212, 175, 55, 0.25);
+}
+
+.challenge-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 28px;
+}
+
+.challenge-lotus {
+    width: 48px;
+    height: 48px;
+    color: #d4af37;
+}
+
+.challenge-rule {
+    width: 96px;
+    height: 1px;
+    background: #d4af37;
+    margin-top: 16px;
+    opacity: 0.5;
+}
+
+.challenge-eyebrow {
+    margin: 12px 0 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #d4af37;
+}
+
+.challenge-title {
+    margin: 0 0 28px;
+    font-size: 26px;
+    font-weight: 600;
+    font-style: italic;
+    line-height: 1.3;
+    color: #3e2a24;
+}
+
+.challenge-quote {
+    margin: 0 0 12px;
+    font-size: 26px;
+    font-weight: 600;
+    font-style: italic;
+    line-height: 1.4;
+    color: #3e2a24;
+}
+
+.challenge-desc {
+    margin: 0 0 28px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #6b5847;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+.challenge-timer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 14px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+.challenge-timer-label {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8a7440;
+}
+
+.challenge-timer-value {
+    font-size: 42px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: #3e2a24;
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.challenge-progress {
+    width: 100%;
+    height: 3px;
+    border-radius: 999px;
+    background: #e8dfc8;
+    margin: 0 0 24px;
+    overflow: hidden;
+}
+
+.challenge-progress-fill {
+    height: 100%;
+    background: #d4af37;
+    transition: width 250ms linear;
+}
+
 .challenge-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
     width: 100%;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .challenge-card {
     width: 100%;
-    padding: 18px 20px;
-    border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: rgba(148, 163, 184, 0.06);
-    color: #f8fafc;
+    padding: 16px 20px;
+    border-radius: 4px;
+    border: 1px solid #e8dfc8;
+    background: #f1efe7;
+    color: #3e2a24;
     font: inherit;
     font-size: 15px;
     cursor: pointer;
@@ -1205,8 +1626,8 @@ const OVERLAY_STYLE = `
 }
 
 .challenge-card:hover {
-    background: rgba(99, 102, 241, 0.18);
-    border-color: #818cf8;
+    background: #efe9d7;
+    border-color: #d4af37;
     transform: translateY(-1px);
 }
 
@@ -1216,9 +1637,10 @@ const OVERLAY_STYLE = `
 }
 
 .challenge-card-desc {
-    font-size: 14px;
-    color: #94a3b8;
+    font-size: 13px;
+    color: #6b5847;
     line-height: 1.4;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 .challenge-actions {
@@ -1228,11 +1650,49 @@ const OVERLAY_STYLE = `
     align-items: center;
 }
 
+.challenge-awaken {
+    position: relative;
+    width: 100%;
+    padding: 12px 32px;
+    border: 1px solid #d4af37;
+    background: transparent;
+    color: #3e2a24;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: color 300ms ease, border-color 300ms ease;
+}
+
+.challenge-awaken::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 0;
+    background: #8b0000;
+    transition: width 300ms ease-out;
+}
+
+.challenge-awaken-label {
+    position: relative;
+    z-index: 1;
+}
+
+.challenge-awaken:hover {
+    border-color: #8b0000;
+    color: #faf8f5;
+}
+
+.challenge-awaken:hover::before {
+    width: 100%;
+}
+
 .challenge-skip {
     border: none;
     background: none;
-    color: #94a3b8;
-    font: inherit;
+    color: #6b5847;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: 14px;
     text-decoration: underline;
     text-underline-offset: 3px;
@@ -1241,6 +1701,6 @@ const OVERLAY_STYLE = `
 }
 
 .challenge-skip:hover {
-    color: #cbd5e1;
+    color: #8b0000;
 }
 `
