@@ -1,0 +1,411 @@
+/* ------------------------------------------------------------------
+   Negative Cards — parchment / thangka aesthetic.
+   Port of the standalone "negative-cards" Karmic Debt dashboard, scoped
+   to the Negative Works desktop section so the negative tab reads as an
+   overpowered, oil-lamp-lit altar of torn Terma scrolls.
+   ------------------------------------------------------------------ */
+
+.kd-debt-shell {
+	--kd-crimson: #8b0000;
+	--kd-crimson-deep: #6b0000;
+	--kd-brown: #5c1a06;
+	--kd-brown-soft: #7a3418;
+	--kd-gold: #c5a86a;
+	--kd-gold-bright: #d4af37;
+	--kd-parchment-front: #ebd5b3;
+	--kd-parchment-front-edge: #b48d55;
+	--kd-parchment-back: #fdfaf5;
+	--kd-parchment-back-edge: #d9c095;
+	--kd-serif-body: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--kd-serif-display: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+	position: relative;
+	color: var(--kd-brown);
+	font-family: var(--kd-serif-body);
+}
+
+.kd-container {
+	position: relative;
+	z-index: 1;
+	padding: 2.75rem 1.5rem 3rem;
+}
+
+/* --- Header --- */
+.kd-header {
+	text-align: center;
+	margin-bottom: 2.75rem;
+}
+
+.kd-title {
+	font-family: var(--kd-serif-display);
+	font-weight: 600;
+	color: var(--kd-crimson);
+	letter-spacing: 0.24em;
+	text-transform: uppercase;
+	font-size: clamp(2rem, 4.5vw, 3rem);
+	margin: 0;
+	text-shadow:
+		0 1px 0 rgba(255, 240, 210, 0.5),
+		0 2px 8px rgba(80, 30, 10, 0.25);
+}
+
+.kd-title-divider {
+	width: 200px;
+	height: 1px;
+	margin: 1.1rem auto 1.25rem;
+	background: linear-gradient(
+		to right,
+		transparent 0%,
+		var(--kd-gold) 20%,
+		var(--kd-gold-bright) 50%,
+		var(--kd-gold) 80%,
+		transparent 100%
+	);
+	position: relative;
+}
+.kd-title-divider::before,
+.kd-title-divider::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	width: 6px;
+	height: 6px;
+	background: var(--kd-gold-bright);
+	border-radius: 50%;
+	transform: translateY(-50%);
+	box-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
+}
+.kd-title-divider::before {
+	left: -6px;
+}
+.kd-title-divider::after {
+	right: -6px;
+}
+
+.kd-subtitle {
+	font-family: var(--kd-serif-body);
+	font-style: italic;
+	color: var(--kd-brown-soft);
+	font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+	margin: 0;
+	letter-spacing: 0.02em;
+}
+
+/* --- Grid --- */
+.kd-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 2.25rem 2rem;
+	padding: 0.25rem;
+}
+@media (min-width: 640px) {
+	.kd-grid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 2.5rem;
+	}
+}
+@media (min-width: 1024px) {
+	.kd-grid {
+		grid-template-columns: repeat(3, 1fr);
+		gap: 2.75rem 2.5rem;
+	}
+}
+
+/* --- Card 3D scaffolding --- */
+.kd-card-perspective {
+	perspective: 1400px;
+	cursor: pointer;
+	outline: none;
+	aspect-ratio: 3 / 4;
+	min-height: 340px;
+	position: relative;
+}
+
+.kd-card-inner {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	transform-style: preserve-3d;
+	transition: transform 0.7s cubic-bezier(0.4, 0.05, 0.2, 1);
+	will-change: transform;
+}
+.kd-card-inner.is-flipped {
+	transform: rotateY(180deg);
+}
+
+/* --- Accessibility: reduced motion (kept above higher-specificity
+   hover/focus rules so selector specificity never descends). --- */
+@media (prefers-reduced-motion: reduce) {
+	.kd-card-inner {
+		transition: transform 0.001s linear;
+	}
+	.kd-card-perspective:hover .kd-card-inner:not(.is-flipped) {
+		transform: none;
+	}
+}
+
+.kd-card-perspective:focus-visible .kd-card-inner {
+	box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.55);
+}
+
+.kd-card-face {
+	position: absolute;
+	inset: 0;
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+	/* NO border-radius — torn edges depend on the SVG filter */
+}
+.kd-card-back {
+	transform: rotateY(180deg);
+}
+
+/* Parchment layer: receives the ragged-edge displacement filter. */
+.kd-parchment {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	isolation: isolate;
+}
+
+.kd-parchment--front {
+	background: radial-gradient(
+		ellipse at 50% 50%,
+		#f0dcb6 0%,
+		var(--kd-parchment-front) 55%,
+		#cfae7f 90%,
+		var(--kd-parchment-front-edge) 100%
+	);
+	box-shadow:
+		inset 0 0 40px rgba(120, 70, 25, 0.35),
+		inset 0 0 90px rgba(70, 35, 10, 0.18),
+		0 18px 30px -14px rgba(60, 30, 5, 0.55),
+		0 6px 10px -6px rgba(60, 30, 5, 0.45);
+}
+
+.kd-parchment--back {
+	background: radial-gradient(
+		ellipse at 50% 40%,
+		var(--kd-parchment-back) 0%,
+		#f7ecd0 55%,
+		#f0e3c4 85%,
+		var(--kd-parchment-back-edge) 100%
+	);
+	box-shadow:
+		inset 0 0 45px rgba(140, 95, 40, 0.25),
+		inset 0 0 100px rgba(90, 55, 15, 0.14),
+		0 18px 30px -14px rgba(60, 30, 5, 0.55),
+		0 6px 10px -6px rgba(60, 30, 5, 0.45);
+}
+
+/* Content layer sits ABOVE the filtered parchment silhouette so text and
+   icons stay crisp (no SVG displacement filter applied). */
+.kd-face-content {
+	position: absolute;
+	inset: 14% 12% 12% 12%;
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+	text-align: center;
+}
+
+/* --- Front content --- */
+.kd-top-label {
+	font-family: var(--kd-serif-display);
+	color: var(--kd-gold);
+	font-size: 0.72rem;
+	letter-spacing: 0.42em;
+	text-transform: uppercase;
+	font-weight: 500;
+	text-shadow: 0 1px 0 rgba(255, 240, 210, 0.6);
+}
+.kd-top-label--back {
+	color: var(--kd-gold-bright);
+	font-size: 0.7rem;
+}
+
+.kd-icon-ring {
+	width: 88px;
+	height: 88px;
+	border: 1.5px solid var(--kd-gold);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--kd-crimson);
+	position: relative;
+	background: radial-gradient(
+		circle,
+		rgba(255, 245, 215, 0.65) 0%,
+		rgba(235, 213, 179, 0.15) 100%
+	);
+	box-shadow:
+		0 0 0 1px rgba(197, 168, 106, 0.35),
+		inset 0 0 12px rgba(140, 90, 30, 0.25);
+}
+.kd-icon-ring::before,
+.kd-icon-ring::after {
+	content: "";
+	position: absolute;
+	border-radius: 50%;
+	border: 1px solid rgba(197, 168, 106, 0.55);
+}
+.kd-icon-ring::before {
+	inset: -8px;
+}
+.kd-icon-ring::after {
+	inset: 4px;
+	border-style: dotted;
+	opacity: 0.6;
+}
+.kd-icon-ring__disc {
+	width: 58%;
+	height: 58%;
+	display: block;
+}
+
+.kd-front-title {
+	font-family: var(--kd-serif-display);
+	color: var(--kd-crimson);
+	font-size: clamp(1.15rem, 2vw, 1.5rem);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	margin: 0;
+	font-weight: 600;
+	line-height: 1.15;
+	text-shadow: 0 1px 0 rgba(255, 240, 210, 0.55);
+}
+
+.kd-divider {
+	color: var(--kd-gold);
+	width: 78%;
+	opacity: 0.85;
+}
+.kd-vajra {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+
+/* --- Back content --- */
+.kd-back-title {
+	font-family: var(--kd-serif-display);
+	color: var(--kd-gold-bright);
+	font-size: clamp(1.2rem, 2vw, 1.55rem);
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	margin: 0;
+	font-weight: 600;
+	text-shadow:
+		0 1px 0 rgba(255, 245, 215, 0.7),
+		0 0 12px rgba(212, 175, 55, 0.15);
+}
+
+.kd-back-desc {
+	font-family: var(--kd-serif-body);
+	color: var(--kd-brown);
+	font-size: 0.72rem;
+	line-height: 1.4;
+	margin: 0;
+	font-style: italic;
+	max-width: 26ch;
+}
+
+.kd-back-meta {
+	font-family: var(--kd-serif-body);
+	color: var(--kd-brown-soft);
+	font-size: 0.85rem;
+	letter-spacing: 0.04em;
+	margin: 0;
+}
+
+.kd-cta {
+	font-family: var(--kd-serif-display);
+	background: var(--kd-crimson);
+	color: #f4e5c2;
+	border: 1px solid rgba(212, 175, 55, 0.55);
+	padding: 0.65rem 1.3rem;
+	font-size: 0.75rem;
+	letter-spacing: 0.28em;
+	text-transform: uppercase;
+	font-weight: 500;
+	cursor: pointer;
+	box-shadow:
+		inset 0 0 0 2px rgba(255, 220, 160, 0.08),
+		0 4px 10px -4px rgba(60, 0, 0, 0.5);
+	transition:
+		background-color 0.25s ease,
+		transform 0.25s ease,
+		color 0.25s ease,
+		box-shadow 0.25s ease;
+}
+.kd-cta:hover {
+	background: var(--kd-crimson-deep);
+	color: #fbf1d3;
+	transform: translateY(-1px);
+	box-shadow:
+		inset 0 0 0 2px rgba(255, 220, 160, 0.12),
+		0 8px 16px -6px rgba(60, 0, 0, 0.55),
+		0 0 18px rgba(212, 175, 55, 0.25);
+}
+.kd-cta:focus-visible {
+	outline: 2px solid var(--kd-gold-bright);
+	outline-offset: 3px;
+}
+
+/* --- Hover lift (front face only, when not flipped) --- */
+.kd-card-perspective:hover .kd-card-inner:not(.is-flipped) {
+	transform: translateY(-4px) rotateX(1.5deg);
+}
+.kd-card-perspective:hover
+	.kd-card-inner:not(.is-flipped)
+	.kd-parchment--front {
+	box-shadow:
+		inset 0 0 40px rgba(120, 70, 25, 0.35),
+		inset 0 0 90px rgba(70, 35, 10, 0.18),
+		0 26px 40px -14px rgba(60, 30, 5, 0.55),
+		0 0 32px rgba(212, 175, 55, 0.35);
+}
+
+/* --- Empty / loading states --- */
+.kd-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 3rem 1.5rem;
+	text-align: center;
+	color: var(--kd-brown-soft);
+	font-style: italic;
+	border: 1px dashed rgba(150, 96, 40, 0.5);
+	background: rgba(250, 240, 215, 0.4);
+	border-radius: 1.5rem;
+}
+.kd-state-title {
+	font-family: var(--kd-serif-display);
+	color: var(--kd-crimson);
+	font-size: 1.05rem;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	font-style: normal;
+	margin: 0;
+}
+.kd-state-text {
+	margin: 0;
+	font-size: 0.95rem;
+	max-width: 40ch;
+}
+
+/* --- Footer --- */
+.kd-footer {
+	margin-top: 3rem;
+	display: flex;
+	justify-content: center;
+	color: var(--kd-gold);
+	opacity: 0.75;
+}
+.kd-footer-glyph {
+	width: 44px;
+	height: 44px;
+}
