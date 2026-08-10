@@ -11,6 +11,6 @@
     "dev:extension": "npm --workspace apps/extension run dev",
     "build:web": "npm --workspace @vinaya/website run build",
     "build:frontend": "npm --workspace apps/frontend run build",
-    "build:extension": "npm --workspace apps/extension run build",
+    "build:extension": "npm --workspace apps/extension run build"
   }
 }
