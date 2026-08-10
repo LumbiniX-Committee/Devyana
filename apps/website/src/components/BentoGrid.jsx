@@ -70,14 +70,14 @@ const Card = ({ card, index }) => {
                     <h3 className="font-serif text-3xl md:text-4xl text-white mb-2 leading-none">
                         {card.title}
                     </h3>
-                    <div className="h-0 opacity-0 overflow-hidden group-hover:h-auto group-hover:opacity-100 transition-all duration-700 ease-in-out">
+                    {/* <div className="h-0 opacity-0 overflow-hidden group-hover:h-auto group-hover:opacity-100 transition-all duration-700 ease-in-out">
                         <p className="text-sm text-gray-200 mt-2 font-sans line-clamp-2">
                             {card.description}
                         </p>
                         <button className={`mt-4 text-xs font-bold uppercase tracking-widest text-white border-b hover:text-travel-gold hover:border-travel-gold transition-colors duration-300 ${isPenthouse ? 'border-travel-gold pb-1 text-travel-gold' : 'border-travel-gold pb-1'}`}>
                             Download
                         </button>
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
