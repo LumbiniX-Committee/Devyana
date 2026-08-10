@@ -2,7 +2,7 @@
   "name": "@vinaya/extension",
   "displayName": "Vinaya",
   "version": "0.0.1",
-  "description": "Live a life you always wanted to",
+  "description": "Be a better human",
   "author": "flame",
   "scripts": {
     "dev": "plasmo dev",

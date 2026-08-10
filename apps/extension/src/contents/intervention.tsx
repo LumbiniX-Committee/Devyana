@@ -55,14 +55,27 @@ function lockPage(): () => void {
     rootEl.style.pointerEvents = "none"
 
     const swallow = (event: KeyboardEvent) => {
-        const target = event.target as HTMLElement | null
-        const editable = Boolean(
-            target &&
-            (target.isContentEditable ||
-                target.tagName === "TEXTAREA" ||
-                target.tagName === "INPUT" ||
-                target.tagName === "SELECT")
+        // Events originating anywhere inside the overlay's shadow root must
+        // flow through untouched: a keydown target inside a shadow DOM can be
+        // retargeted (or focus can briefly sit on the shadow host itself), so
+        // the tagName check below is not a reliable guard for typing inside the
+        // Reflect box. Checking the composed path is.
+        const overlayHost = document.querySelector("[data-vinaya-intervention='true']")
+        const inOverlay = Boolean(
+            overlayHost &&
+            typeof event.composedPath === "function" &&
+            event.composedPath().includes(overlayHost)
         )
+        const target = event.target as HTMLElement | null
+        const editable =
+            inOverlay ||
+            Boolean(
+                target &&
+                (target.isContentEditable ||
+                    target.tagName === "TEXTAREA" ||
+                    target.tagName === "INPUT" ||
+                    target.tagName === "SELECT")
+            )
         const key = event.key.toLowerCase()
         const modified = event.ctrlKey || event.metaKey
 
@@ -362,6 +375,7 @@ function RealizationTask({ params, onComplete }: TaskComponentProps) {
                 className="realization-textarea"
                 value={text}
                 onChange={(event) => setText(event.target.value)}
+                onPointerDown={() => textareaRef.current?.focus()}
                 placeholder="Write whatever comes to mind…"
                 rows={6}
             />
@@ -1453,6 +1467,7 @@ const OVERLAY_STYLE = `
     font-size: 16px;
     line-height: 1.5;
     resize: none;
+    pointer-events: auto;
 }
 
 .realization-textarea:focus {

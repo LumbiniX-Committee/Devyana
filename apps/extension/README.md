@@ -1,11 +1,7 @@
 # Vinaya Extension
 
-Live a life you always wanted to
+Be a better human
 
 ## Introduction
 
-Vinaya is a productivity system that helps you live a life you always wanted to live by enabling the settings based on user's determination and cannot be changed unless user does some activity which makes user think twice before changing the setting again. 
-
-## Extension Architecture
-
-...
+Vinaya is a desktop application and companion browser extension that reads your everyday browsing behavior through the lens of Buddhist wisdom, helping you recognize unwholesome digital habits and rebuild a more mindful relationship with the internet. Its name comes from the *Vinaya* — the Buddhist code of monastic discipline — reflecting the app's goal of bringing that same structure and self-discipline to modern digital life. Built for *LumbiniX*, a hackathon centered on the theme *"Where Spirituality Meets Innovation"*.

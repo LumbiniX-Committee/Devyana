@@ -87,7 +87,7 @@ export default function BehaviorTrendChart({
 			chart: {
 				type: "area",
 				height: 320,
-				stacked: true,
+				stacked: false,
 				background: "transparent",
 				toolbar: { show: false },
 				fontFamily: FONT,

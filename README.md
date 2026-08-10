@@ -100,8 +100,9 @@ Named for the *Sangha* — the Buddhist community of practitioners who support o
 
 ## Project Structure
 ```text
-Vinaya/
-├── desktop-app/          # Electron-based desktop application (UI, graphs, suggestions)
+ai/
+apps/
+├── website/          # Landing page for the application
 │   ├── src/
 │   ├── public/
 │   ├── package.json
@@ -109,8 +110,13 @@ Vinaya/
 │
 ├── extension/             # Browser extension that captures browsing metadata
 │   ├── src/
-│   ├── manifest.json
 │   └── ...etc
 │
-└── server.py               # Primary server + Buddha Engine (Five Precepts / Eightfold Path classification logic)
+├── frontend/             # Tauri-based desktop application (UI, graphs, suggestions)
+│   ├── src/
+│   ├── src-tauri/
+│   └── ...etc
+│
+scripts/
+packages/
 ```
