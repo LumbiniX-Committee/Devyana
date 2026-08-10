@@ -61,9 +61,9 @@ export default function Header() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <a href="#" className="hidden md:block text-white text-sm font-semibold hover:text-brand-gold transition-colors whitespace-nowrap">Download App</a>
+                    <a href="https://github.com/LumbiniX-Committee/Devyana/releases/download/v1/Vinaya.exe" className="hidden md:block text-white text-sm font-semibold hover:text-brand-gold transition-colors whitespace-nowrap">Download App</a>
                     <a
-                        href="#"
+                        href="chrome://extensions/?id=bomamicfnogdlpgbhdngbeaghekmnjnh"
                         className="bg-white text-black px-5 py-2 rounded-full font-sans text-sm font-semibold hover:scale-105 transition-all hover:bg-brand-gold hover:text-black whitespace-nowrap"
                     >
                         Download Extension
