@@ -539,12 +539,13 @@ pub fn fallback_bad_topic_for_url(url: &str) -> Option<String> {
                 "twitter",
                 "x.com",
                 "social",
+                "youtube"
             ]
             .iter()
             .any(|word| normalized.contains(word))
             {
                 Some("Social Media")
-            } else if ["netflix", "twitch", "stream", "video"]
+            } else if ["netflix", "twitch", "stream"]
                 .iter()
                 .any(|word| normalized.contains(word))
             {
